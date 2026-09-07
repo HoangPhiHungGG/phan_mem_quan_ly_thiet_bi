@@ -1,0 +1,33 @@
+{
+  "name": "pmqltb",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hệ thống quản lý thiết bị điện tử và linh kiện - Phòng IT",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run start:dev --workspace=@pmqltb/api",
+    "dev:web": "npm run dev --workspace=@pmqltb/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "format": "prettier --write \"**/*.{js,mjs,ts,tsx,json,md,yml,yaml,css}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,ts,tsx,json,md,yml,yaml,css}\"",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspace=@pmqltb/api",
+    "db:up": "docker compose -f docker/mongodb.yml up -d && bash docker/init-replica-set.sh",
+    "db:stop": "docker compose -f docker/mongodb.yml stop",
+    "db:logs": "docker compose -f docker/mongodb.yml logs -f mongodb",
+    "db:down": "docker compose -f docker/mongodb.yml down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

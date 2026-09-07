@@ -1,0 +1,32 @@
+# MongoDB local cho môi trường phát triển.
+# Replica set MỘT node - chỉ để hỗ trợ MongoDB transaction trong dev.
+# KHÔNG phải cấu hình có tính sẵn sàng cao (HA).
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: pmqltb-mongodb
+    restart: unless-stopped
+    command:
+      - mongod
+      - --replSet
+      - rs0
+      # Bind tất cả interface trong container (cần cho Docker port forwarding).
+      # Port chỉ bind 127.0.0.1 trên host nên vẫn an toàn.
+      - --bind_ip_all
+      - --port
+      - "27017"
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  mongodb_data:
+    name: pmqltb-mongodb-data
