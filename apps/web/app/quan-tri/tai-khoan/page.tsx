@@ -93,10 +93,13 @@ const auditNames: Record<string, string> = {
 
 export default function UsersAdminPage() {
   const { user: me, hasPermission, refresh } = useAuth();
+  const isSystemAdmin = Boolean(me?.roleCodes.includes("SYSTEM_ADMIN"));
   const can = useCallback(
     (permission: string, legacy?: string) =>
-      hasPermission(permission) || Boolean(legacy && hasPermission(legacy)),
-    [hasPermission],
+      isSystemAdmin ||
+      hasPermission(permission) ||
+      Boolean(legacy && hasPermission(legacy)),
+    [hasPermission, isSystemAdmin],
   );
   const tabs = useMemo(
     () =>
@@ -765,7 +768,7 @@ function Accounts({
                   : "Chưa đăng nhập"}
               </Cell>
               <Cell>
-                <div className="flex gap-1">
+                <div className="flex min-w-max gap-1">
                   <Button size="sm" variant="outline" onClick={() => edit(row)}>
                     Chi tiết
                   </Button>
@@ -778,11 +781,52 @@ function Accounts({
                       Sửa vai trò
                     </Button>
                   )}
+                  {permissions.lock && row.status === "ACTIVE" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={row.id === me}
+                      title={
+                        row.id === me
+                          ? "Không thể tự khóa tài khoản đang đăng nhập"
+                          : "Khóa tạm thời tài khoản này"
+                      }
+                      onClick={() => changeStatus(row, "lock")}
+                    >
+                      <LockKeyhole />
+                      Khóa
+                    </Button>
+                  )}
+                  {permissions.lock && row.status === "LOCKED" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => changeStatus(row, "unlock")}
+                    >
+                      <RefreshCw />
+                      Mở khóa
+                    </Button>
+                  )}
+                  {permissions.delete && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={row.id === me}
+                      title={
+                        row.id === me
+                          ? "Không thể tự xóa tài khoản đang đăng nhập"
+                          : "Chỉ xóa được tài khoản chưa phát sinh lịch sử"
+                      }
+                      onClick={() => remove(row)}
+                    >
+                      <Trash2 />
+                      Xóa
+                    </Button>
+                  )}
                   {(permissions.edit ||
                     permissions.reset ||
-                    permissions.lock ||
-                    permissions.activate ||
-                    permissions.delete) && (
+                    permissions.activate) && (
                     <details className="relative">
                       <summary
                         className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md border hover:bg-accent"
@@ -805,26 +849,6 @@ function Accounts({
                             Reset mật khẩu
                           </MenuAction>
                         )}
-                        {permissions.lock &&
-                          row.id !== me &&
-                          row.status === "ACTIVE" && (
-                            <MenuAction
-                              onClick={() => changeStatus(row, "lock")}
-                            >
-                              <LockKeyhole />
-                              Khóa tài khoản
-                            </MenuAction>
-                          )}
-                        {permissions.lock &&
-                          row.id !== me &&
-                          row.status === "LOCKED" && (
-                            <MenuAction
-                              onClick={() => changeStatus(row, "unlock")}
-                            >
-                              <RefreshCw />
-                              Mở khóa tài khoản
-                            </MenuAction>
-                          )}
                         {permissions.activate &&
                           row.id !== me &&
                           ["ACTIVE", "LOCKED"].includes(row.status) && (
@@ -843,12 +867,6 @@ function Accounts({
                               Kích hoạt lại
                             </MenuAction>
                           )}
-                        {permissions.delete && row.id !== me && (
-                          <MenuAction destructive onClick={() => remove(row)}>
-                            <Trash2 />
-                            Xóa tài khoản
-                          </MenuAction>
-                        )}
                       </div>
                     </details>
                   )}
