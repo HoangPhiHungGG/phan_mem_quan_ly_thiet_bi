@@ -17,7 +17,7 @@ import {
 import type { Request, Response } from "express";
 import { CurrentUser, Public } from "./auth.decorators";
 import { CSRF_COOKIE, SESSION_COOKIE } from "./auth.constants";
-import { LoginDto } from "./auth.dto";
+import { ChangePasswordDto, LoginDto } from "./auth.dto";
 import { AuthService } from "./auth.service";
 import type { AuthenticatedRequest, CurrentActor } from "./auth.types";
 
@@ -90,6 +90,21 @@ export class AuthController {
     return { user: this.toPublicActor(actor) };
   }
 
+  @Post("change-password")
+  @HttpCode(204)
+  @ApiCookieAuth(SESSION_COOKIE)
+  @ApiOperation({ summary: "Đổi mật khẩu của tài khoản hiện tại" })
+  async changePassword(
+    @Body() input: ChangePasswordDto,
+    @CurrentUser() actor: CurrentActor,
+  ): Promise<void> {
+    await this.auth.changePassword(
+      actor,
+      input.currentPassword,
+      input.newPassword,
+    );
+  }
+
   @Post("logout")
   @HttpCode(204)
   @ApiCookieAuth(SESSION_COOKIE)
@@ -119,6 +134,7 @@ export class AuthController {
       email: actor.email,
       displayName: actor.displayName,
       status: actor.status,
+      mustChangePassword: actor.mustChangePassword,
       primaryDepartmentId: actor.primaryDepartmentId,
       roleCodes: actor.roleCodes,
       permissions: actor.permissions,

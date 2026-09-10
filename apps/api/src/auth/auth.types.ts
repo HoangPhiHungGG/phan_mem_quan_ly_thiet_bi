@@ -16,6 +16,7 @@ export type CurrentActor = {
   email: string;
   displayName: string;
   status: string;
+  mustChangePassword?: boolean;
   primaryDepartmentId?: string;
   roleCodes: string[];
   permissions: Permission[];

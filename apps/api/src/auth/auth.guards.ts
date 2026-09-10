@@ -52,6 +52,17 @@ export class SessionAuthGuard implements CanActivate {
     request.actor = await this.auth.authenticate(rawToken);
     request.rawSessionToken = rawToken;
 
+    if (
+      request.actor.mustChangePassword &&
+      ![
+        "/api/auth/me",
+        "/api/auth/change-password",
+        "/api/auth/logout",
+      ].includes(request.path)
+    ) {
+      throw new ForbiddenException({ code: "PASSWORD_CHANGE_REQUIRED" });
+    }
+
     if (!SAFE_METHODS.has(request.method)) {
       const csrfCookie = getCookie(request, CSRF_COOKIE);
       const csrfHeader = request.headers["x-csrf-token"];
@@ -88,7 +99,26 @@ export class PermissionsGuard implements CanActivate {
     if (!required?.length) return true;
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const granted = new Set(request.actor.permissions);
-    if (!required.every((permission) => granted.has(permission))) {
+    const legacy: Partial<Record<Permission, Permission[]>> = {
+      "users.view": ["users.read"],
+      "users.create": ["users.manage"],
+      "users.update": ["users.manage"],
+      "users.assign_role": ["users.manage", "roles.assign"],
+      "users.lock": ["users.manage"],
+      "users.activate": ["users.manage"],
+      "users.reset_password": ["users.manage"],
+      "users.delete": ["users.manage"],
+      "roles.view": ["roles.read"],
+    };
+    if (
+      !required.every((permission) => {
+        const oldPermission = legacy[permission];
+        return (
+          granted.has(permission) ||
+          Boolean(oldPermission?.some((item) => granted.has(item)))
+        );
+      })
+    ) {
       throw new ForbiddenException({ code: "PERMISSION_DENIED" });
     }
     return true;

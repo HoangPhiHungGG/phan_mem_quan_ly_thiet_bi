@@ -17,6 +17,12 @@ import {
   WarehouseSchema,
 } from "./identity.schemas";
 import { IdentityService } from "./identity.service";
+import {
+  Keeper,
+  KeeperSchema,
+  Position,
+  PositionSchema,
+} from "../catalog/catalog.schemas";
 
 @Module({
   imports: [
@@ -28,6 +34,8 @@ import { IdentityService } from "./identity.service";
       { name: Department.name, schema: DepartmentSchema },
       { name: Warehouse.name, schema: WarehouseSchema },
       { name: BootstrapLock.name, schema: BootstrapLockSchema },
+      { name: Keeper.name, schema: KeeperSchema },
+      { name: Position.name, schema: PositionSchema },
     ]),
   ],
   controllers: [IdentityController],

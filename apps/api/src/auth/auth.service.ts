@@ -191,6 +191,39 @@ export class AuthService {
     );
   }
 
+  async changePassword(
+    actor: CurrentActor,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.users
+      .findById(actor.userId)
+      .select("+passwordHash")
+      .exec();
+    if (!user || !(await verifyPassword(currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException({ code: "CURRENT_PASSWORD_INVALID" });
+    }
+    user.passwordHash = await hashPassword(newPassword);
+    user.mustChangePassword = false;
+    user.passwordChangedAt = new Date();
+    await user.save();
+    await this.sessions.updateMany(
+      {
+        userId: user._id,
+        _id: { $ne: actor.sessionId },
+        revokedAt: { $exists: false },
+      },
+      { $set: { revokedAt: new Date(), revokeReason: "PASSWORD_CHANGED" } },
+    );
+    await this.audit.write({
+      actorUserId: user._id,
+      action: "PASSWORD_CHANGED",
+      entityType: "User",
+      entityId: user._id,
+      outcome: "SUCCESS",
+    });
+  }
+
   private async buildActor(
     user: User & { _id: Types.ObjectId },
     sessionId: Types.ObjectId,
@@ -229,6 +262,7 @@ export class AuthService {
       email: user.email,
       displayName: user.displayName,
       status: user.status,
+      mustChangePassword: user.mustChangePassword,
       primaryDepartmentId: user.primaryDepartmentId?.toString(),
       roleCodes: roles.map((role) => role.code),
       permissions: [...permissions],

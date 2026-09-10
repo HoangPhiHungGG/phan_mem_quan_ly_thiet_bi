@@ -200,6 +200,30 @@ export async function apiFetch<T>(
         "Tài sản này đã có trong danh sách snapshot cần kiểm.",
       COUNT_UNEXPECTED_DUPLICATE:
         "Tài sản phát sinh này đã được ghi nhận trong phiếu.",
+      EMPLOYEE_REFERENCE_INVALID:
+        "Nhân viên không tồn tại, đã nghỉ việc hoặc ngừng sử dụng.",
+      EMPLOYEE_ALREADY_HAS_ACCOUNT: "Nhân viên này đã có tài khoản.",
+      EMPLOYEE_CODE_REQUIRED: "Nhân viên chưa có mã nhân viên.",
+      ROLE_REFERENCE_INVALID: "Vai trò không tồn tại hoặc đã ngừng sử dụng.",
+      USER_ALREADY_EXISTS: "Mã nhân viên hoặc email đã có tài khoản.",
+      LAST_ADMIN_PROTECTED:
+        "Không thể khóa hoặc đổi vai trò của quản trị viên hoạt động cuối cùng.",
+      CANNOT_LOCK_SELF:
+        "Bạn không thể tự khóa hoặc vô hiệu hóa tài khoản đang đăng nhập.",
+      CANNOT_DELETE_SELF: "Bạn không thể tự xóa tài khoản đang đăng nhập.",
+      USER_HAS_BUSINESS_HISTORY:
+        "Tài khoản đã phát sinh dữ liệu và không thể xóa. Vui lòng vô hiệu hóa tài khoản.",
+      USER_STATUS_TRANSITION_INVALID:
+        "Trạng thái tài khoản đã thay đổi hoặc thao tác này không còn phù hợp.",
+      ADMIN_CHANGE_IN_PROGRESS:
+        "Một thay đổi tài khoản quản trị khác đang được xử lý. Hãy thử lại.",
+      SYSTEM_ADMIN_ROLE_PROTECTED:
+        "Không thể tắt hoặc thu hồi quyền của vai trò Quản trị viên.",
+      CURRENT_PASSWORD_INVALID: "Mật khẩu hiện tại không đúng.",
+      PERMISSION_DEPENDENCY_REQUIRED:
+        "Cần cấp quyền Xem trước khi cấp các quyền thao tác trong cùng module.",
+      PASSWORD_CHANGE_REQUIRED:
+        "Bạn cần đổi mật khẩu trước khi sử dụng chức năng này.",
     };
     const code = payload.error?.code ?? payload.code;
     const error = new Error(

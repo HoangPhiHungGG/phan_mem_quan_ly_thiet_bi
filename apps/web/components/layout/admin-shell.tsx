@@ -13,15 +13,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, loading } = useAuth();
   const loginPage = pathname === "/dang-nhap";
+  const changePasswordPage = pathname === "/doi-mat-khau";
 
   useEffect(() => {
     if (!loading && !user && !loginPage) {
       router.replace(`/dang-nhap?returnTo=${encodeURIComponent(pathname)}`);
     }
     if (!loading && user && loginPage) router.replace("/");
-  }, [loading, user, loginPage, pathname, router]);
+    if (!loading && user?.mustChangePassword && !changePasswordPage) {
+      router.replace("/doi-mat-khau");
+    }
+  }, [changePasswordPage, loading, user, loginPage, pathname, router]);
 
-  if (loginPage) return <>{children}</>;
+  if (loginPage || changePasswordPage) return <>{children}</>;
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">

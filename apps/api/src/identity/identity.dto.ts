@@ -6,6 +6,8 @@ import {
   IsEnum,
   IsMongoId,
   IsOptional,
+  IsBoolean,
+  IsInt,
   IsString,
   Length,
   Matches,
@@ -16,34 +18,68 @@ import { ALL_PERMISSIONS, type Permission } from "./identity.schemas";
 
 export class CreateUserDto {
   @ApiProperty()
-  @IsString()
-  @Length(1, 50)
-  employeeCode!: string;
+  @IsMongoId()
+  employeeId!: string;
 
   @ApiProperty()
   @IsEmail()
   email!: string;
 
-  @ApiProperty()
-  @IsString()
-  @Length(1, 120)
-  displayName!: string;
-
   @ApiProperty({ minLength: 12, writeOnly: true })
   @IsString()
   @Length(12, 128)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
+    message: "Mật khẩu phải có ít nhất một chữ và một số",
+  })
   password!: string;
 
+  @ApiProperty()
+  @IsMongoId()
+  roleId!: string;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  mustChangePassword?: boolean;
+
+  @ApiPropertyOptional({ enum: ["ACTIVE", "LOCKED", "INACTIVE"] })
+  @IsOptional()
+  @IsEnum(["ACTIVE", "LOCKED", "INACTIVE"])
+  status?: "ACTIVE" | "LOCKED" | "INACTIVE";
+}
+
+export class UpdateUserDto {
   @ApiPropertyOptional()
   @IsOptional()
+  @IsEmail()
+  email?: string;
+}
+
+export class AssignUserRoleDto {
+  @ApiProperty()
   @IsMongoId()
-  primaryDepartmentId?: string;
+  roleId!: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ minLength: 12, writeOnly: true })
+  @IsString()
+  @Length(12, 128)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d).+$/, {
+    message: "Mật khẩu phải có ít nhất một chữ và một số",
+  })
+  password!: string;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  mustChangePassword?: boolean;
 }
 
 export class UpdateUserStatusDto {
-  @ApiProperty({ enum: ["ACTIVE", "LOCKED", "DISABLED"] })
-  @IsEnum(["ACTIVE", "LOCKED", "DISABLED"])
-  status!: "ACTIVE" | "LOCKED" | "DISABLED";
+  @ApiProperty({ enum: ["ACTIVE", "LOCKED", "INACTIVE"] })
+  @IsEnum(["ACTIVE", "LOCKED", "INACTIVE"])
+  status!: "ACTIVE" | "LOCKED" | "INACTIVE";
 }
 
 export class CreateRoleDto {
@@ -68,6 +104,48 @@ export class CreateRoleDto {
   @ArrayMaxSize(ALL_PERMISSIONS.length)
   @IsEnum(ALL_PERMISSIONS, { each: true })
   permissions!: Permission[];
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateRoleDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  description?: string;
+
+  @ApiPropertyOptional({ enum: ALL_PERMISSIONS, isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(ALL_PERMISSIONS.length)
+  @IsEnum(ALL_PERMISSIONS, { each: true })
+  permissions?: Permission[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class ListQueryDto {
+  @IsOptional() @IsString() q?: string;
+  @IsOptional() @IsString() status?: string;
+  @IsOptional() @IsMongoId() departmentId?: string;
+  @IsOptional() @IsMongoId() roleId?: string;
+  @IsOptional() @Type(() => Number) @IsInt() page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() limit?: number;
+  @IsOptional() @IsString() action?: string;
+  @IsOptional() @IsMongoId() actorUserId?: string;
 }
 
 export class AssignmentScopeDto {

@@ -142,7 +142,7 @@ const navGroups: NavGroup[] = [
         href: "/quan-tri/tai-khoan",
         label: "Quản trị",
         icon: Settings,
-        permission: "users.read",
+        permission: "users.view",
       },
     ],
   },

@@ -17,6 +17,7 @@ export type CurrentUser = {
   email: string;
   displayName: string;
   status: string;
+  mustChangePassword: boolean;
   primaryDepartmentId?: string;
   roleCodes: string[];
   permissions: string[];
@@ -33,6 +34,7 @@ type AuthContextValue = {
   loading: boolean;
   login(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
+  refresh(): Promise<void>;
   hasPermission(permission: string): boolean;
 };
 
@@ -84,10 +86,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login,
       logout,
+      refresh,
       hasPermission: (permission) =>
         Boolean(user?.permissions.includes(permission)),
     }),
-    [user, loading, login, logout],
+    [user, loading, login, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

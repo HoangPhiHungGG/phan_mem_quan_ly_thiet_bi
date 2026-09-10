@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CurrentUser, RequirePermissions } from "../auth/auth.decorators";
@@ -13,10 +14,15 @@ import { SESSION_COOKIE } from "../auth/auth.constants";
 import type { CurrentActor } from "../auth/auth.types";
 import {
   AssignRoleDto,
+  AssignUserRoleDto,
   CreateDepartmentDto,
   CreateRoleDto,
   CreateUserDto,
   CreateWarehouseDto,
+  ListQueryDto,
+  ResetPasswordDto,
+  UpdateRoleDto,
+  UpdateUserDto,
   UpdateUserStatusDto,
 } from "./identity.dto";
 import { IdentityService } from "./identity.service";
@@ -28,17 +34,93 @@ export class IdentityController {
   constructor(private readonly identity: IdentityService) {}
 
   @Get("users")
-  @RequirePermissions("users.read")
+  @RequirePermissions("users.view")
   @ApiOperation({ summary: "Danh sách tài khoản" })
-  listUsers() {
-    return this.identity.listUsers();
+  listUsers(@Query() query: ListQueryDto) {
+    return this.identity.listUsers(query);
   }
 
   @Post("users")
-  @RequirePermissions("users.manage")
+  @RequirePermissions("users.create", "users.assign_role")
   @ApiOperation({ summary: "Tạo tài khoản" })
   createUser(@Body() input: CreateUserDto, @CurrentUser() actor: CurrentActor) {
     return this.identity.createUser(input, actor);
+  }
+
+  @Get("users/eligible-employees")
+  @RequirePermissions("users.create", "users.assign_role")
+  @ApiOperation({ summary: "Nhân viên chưa có tài khoản" })
+  eligibleEmployees(@Query("q") q?: string) {
+    return this.identity.eligibleEmployees(q);
+  }
+
+  @Patch("users/:id")
+  @RequirePermissions("users.update")
+  @ApiOperation({ summary: "Cập nhật thông tin đăng nhập của tài khoản" })
+  updateUser(
+    @Param("id") id: string,
+    @Body() input: UpdateUserDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.identity.updateUser(id, input, actor);
+  }
+
+  @Post("users/:id/assign-role")
+  @RequirePermissions("users.assign_role")
+  @ApiOperation({ summary: "Thay vai trò hiện tại của tài khoản" })
+  assignUserRole(
+    @Param("id") id: string,
+    @Body() input: AssignUserRoleDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.identity.assignUserRole(id, input.roleId, actor);
+  }
+
+  @Post("users/:id/lock")
+  @RequirePermissions("users.lock")
+  lock(@Param("id") id: string, @CurrentUser() actor: CurrentActor) {
+    return this.identity.updateStatus(id, "LOCKED", actor);
+  }
+
+  @Post("users/:id/unlock")
+  @RequirePermissions("users.lock")
+  unlock(@Param("id") id: string, @CurrentUser() actor: CurrentActor) {
+    return this.identity.updateStatus(id, "ACTIVE", actor, "LOCKED");
+  }
+
+  @Post("users/:id/deactivate")
+  @RequirePermissions("users.activate")
+  deactivate(@Param("id") id: string, @CurrentUser() actor: CurrentActor) {
+    return this.identity.updateStatus(id, "INACTIVE", actor);
+  }
+
+  @Post("users/:id/activate")
+  @RequirePermissions("users.activate")
+  activate(@Param("id") id: string, @CurrentUser() actor: CurrentActor) {
+    return this.identity.updateStatus(
+      id,
+      "ACTIVE",
+      actor,
+      "INACTIVE_OR_DISABLED",
+    );
+  }
+
+  @Delete("users/:id")
+  @RequirePermissions("users.delete")
+  @ApiOperation({ summary: "Xóa tài khoản chưa phát sinh lịch sử" })
+  deleteUser(@Param("id") id: string, @CurrentUser() actor: CurrentActor) {
+    return this.identity.deleteUser(id, actor);
+  }
+
+  @Post("users/:id/reset-password")
+  @RequirePermissions("users.reset_password")
+  @ApiOperation({ summary: "Đặt lại mật khẩu và thu hồi các phiên đăng nhập" })
+  resetPassword(
+    @Param("id") id: string,
+    @Body() input: ResetPasswordDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.identity.resetPassword(id, input, actor);
   }
 
   @Get("users/:id")
@@ -52,7 +134,7 @@ export class IdentityController {
   }
 
   @Patch("users/:id/status")
-  @RequirePermissions("users.manage")
+  @RequirePermissions("users.lock")
   @ApiOperation({
     summary: "Khóa/mở tài khoản",
     description: "Khóa/vô hiệu hóa sẽ thu hồi mọi phiên của tài khoản.",
@@ -66,10 +148,17 @@ export class IdentityController {
   }
 
   @Get("roles")
-  @RequirePermissions("roles.read")
+  @RequirePermissions("roles.view")
   @ApiOperation({ summary: "Danh sách vai trò" })
   listRoles() {
     return this.identity.listRoles();
+  }
+
+  @Get("permissions")
+  @RequirePermissions("roles.view")
+  @ApiOperation({ summary: "Danh mục quyền theo module" })
+  permissions() {
+    return this.identity.permissions();
   }
 
   @Post("roles")
@@ -77,6 +166,24 @@ export class IdentityController {
   @ApiOperation({ summary: "Tạo vai trò" })
   createRole(@Body() input: CreateRoleDto, @CurrentUser() actor: CurrentActor) {
     return this.identity.createRole(input, actor);
+  }
+
+  @Patch("roles/:id")
+  @RequirePermissions("roles.manage")
+  @ApiOperation({ summary: "Cập nhật vai trò và ma trận quyền" })
+  updateRole(
+    @Param("id") id: string,
+    @Body() input: UpdateRoleDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.identity.updateRole(id, input, actor);
+  }
+
+  @Get("admin-audit-logs")
+  @RequirePermissions("audit.view")
+  @ApiOperation({ summary: "Nhật ký thao tác quản trị" })
+  listAudit(@Query() query: ListQueryDto) {
+    return this.identity.listAudit(query);
   }
 
   @Post("users/:id/role-assignments")

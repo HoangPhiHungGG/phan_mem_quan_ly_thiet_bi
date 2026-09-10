@@ -8,13 +8,131 @@ export type DepartmentDocument = HydratedDocument<Department>;
 export type WarehouseDocument = HydratedDocument<Warehouse>;
 export type BootstrapLockDocument = HydratedDocument<BootstrapLock>;
 
-export const ALL_PERMISSIONS = [
+export const PERMISSION_GROUPS = [
+  {
+    module: "Tổng quan",
+    permissions: [{ code: "dashboard.view", label: "Xem" }],
+  },
+  {
+    module: "Thiết bị",
+    permissions: [
+      { code: "devices.read", label: "Xem" },
+      { code: "devices.manage", label: "Tạo, sửa và xóa" },
+    ],
+  },
+  {
+    module: "Linh kiện",
+    permissions: [
+      { code: "parts.read", label: "Xem" },
+      { code: "parts.manage", label: "Tạo, sửa và xóa" },
+    ],
+  },
+  {
+    module: "Danh mục & nhân sự",
+    permissions: [
+      { code: "catalog.read", label: "Xem" },
+      { code: "catalog.manage", label: "Quản lý" },
+    ],
+  },
+  {
+    module: "Bộ phận",
+    permissions: [
+      { code: "departments.read", label: "Xem" },
+      { code: "departments.manage", label: "Quản lý" },
+    ],
+  },
+  {
+    module: "Kho",
+    permissions: [
+      { code: "warehouses.read", label: "Xem" },
+      { code: "warehouses.manage", label: "Quản lý" },
+      { code: "opening-balance.manage", label: "Nhập số dư đầu kỳ" },
+    ],
+  },
+  {
+    module: "Nhập kho",
+    permissions: [
+      { code: "receipts.read", label: "Xem" },
+      { code: "receipts.manage", label: "Quản lý và hoàn tất" },
+    ],
+  },
+  {
+    module: "Cấp phát, mượn/trả, điều chuyển, thu hồi",
+    permissions: [
+      { code: "operations.read", label: "Xem" },
+      { code: "operations.manage", label: "Tạo, sửa, hoàn tất và hủy" },
+    ],
+  },
+  {
+    module: "Sửa chữa",
+    permissions: [
+      { code: "repair.view", label: "Xem" },
+      { code: "repair.create", label: "Tạo" },
+      { code: "repair.edit", label: "Sửa" },
+      { code: "repair.receive", label: "Tiếp nhận" },
+      { code: "repair.complete", label: "Hoàn tất" },
+      { code: "repair.cancel", label: "Hủy" },
+    ],
+  },
+  {
+    module: "Kiểm kê",
+    permissions: [
+      { code: "inventory.view", label: "Xem" },
+      { code: "inventory.create", label: "Tạo" },
+      { code: "inventory.edit", label: "Sửa" },
+      { code: "inventory.perform", label: "Thực hiện" },
+      { code: "inventory.reconcile", label: "Xử lý chênh lệch" },
+      { code: "inventory.complete", label: "Hoàn tất" },
+      { code: "inventory.cancel", label: "Hủy" },
+    ],
+  },
+  {
+    module: "Thanh lý",
+    permissions: [
+      { code: "liquidation.view", label: "Xem" },
+      { code: "liquidation.create", label: "Tạo" },
+      { code: "liquidation.edit", label: "Sửa" },
+      { code: "liquidation.submit", label: "Gửi duyệt" },
+      { code: "liquidation.approve", label: "Duyệt/từ chối" },
+      { code: "liquidation.complete", label: "Hoàn tất" },
+      { code: "liquidation.cancel", label: "Hủy" },
+    ],
+  },
+  {
+    module: "Mua sắm",
+    permissions: [
+      { code: "purchases.read", label: "Xem" },
+      { code: "purchases.manage", label: "Quản lý" },
+    ],
+  },
+  {
+    module: "Báo cáo",
+    permissions: [{ code: "reports.read", label: "Xem và xuất báo cáo" }],
+  },
+  {
+    module: "Quản trị",
+    permissions: [
+      { code: "users.view", label: "Xem tài khoản" },
+      { code: "users.create", label: "Tạo tài khoản" },
+      { code: "users.update", label: "Sửa tài khoản" },
+      { code: "users.assign_role", label: "Sửa vai trò" },
+      { code: "users.lock", label: "Khóa/mở khóa" },
+      { code: "users.activate", label: "Vô hiệu hóa/kích hoạt" },
+      { code: "users.reset_password", label: "Đặt lại mật khẩu" },
+      { code: "users.delete", label: "Xóa tài khoản chưa sử dụng" },
+      { code: "roles.view", label: "Xem vai trò" },
+      { code: "roles.manage", label: "Quản lý vai trò và quyền" },
+      { code: "roles.assign", label: "Gán vai trò" },
+      { code: "audit.view", label: "Xem nhật ký quản trị" },
+    ],
+  },
+] as const;
+
+export const LEGACY_PERMISSIONS = [
   "account.read.self",
   "users.read",
   "users.manage",
   "roles.read",
-  "roles.manage",
-  "roles.assign",
   "departments.read",
   "departments.manage",
   "warehouses.read",
@@ -52,13 +170,24 @@ export const ALL_PERMISSIONS = [
   "inventory.cancel",
   "purchases.read",
   "purchases.manage",
-  "reports.read",
+] as const;
+
+export const ALL_PERMISSIONS = [
+  ...new Set([
+    ...LEGACY_PERMISSIONS,
+    ...PERMISSION_GROUPS.flatMap((group) =>
+      group.permissions.map((item) => item.code),
+    ),
+  ]),
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
 
 @Schema({ collection: "users", timestamps: true, optimisticConcurrency: true })
 export class User {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Keeper" })
+  employeeId?: Types.ObjectId;
+
   @Prop({ required: true, trim: true, maxlength: 50 })
   employeeCode!: string;
 
@@ -79,21 +208,28 @@ export class User {
 
   @Prop({
     required: true,
-    enum: ["INVITED", "ACTIVE", "LOCKED", "DISABLED"],
+    enum: ["INVITED", "ACTIVE", "LOCKED", "INACTIVE", "DISABLED"],
     default: "ACTIVE",
   })
-  status!: "INVITED" | "ACTIVE" | "LOCKED" | "DISABLED";
+  status!: "INVITED" | "ACTIVE" | "LOCKED" | "INACTIVE" | "DISABLED";
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Department" })
   primaryDepartmentId?: Types.ObjectId;
 
   @Prop()
   lastLoginAt?: Date;
+
+  @Prop({ default: false })
+  mustChangePassword!: boolean;
+
+  @Prop()
+  passwordChangedAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ employeeCodeNormalized: 1 }, { unique: true });
 UserSchema.index({ emailNormalized: 1 }, { unique: true });
+UserSchema.index({ employeeId: 1 }, { unique: true, sparse: true });
 UserSchema.index({ primaryDepartmentId: 1, status: 1, displayName: 1 });
 
 @Schema({ collection: "roles", timestamps: true, optimisticConcurrency: true })
