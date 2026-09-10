@@ -6,12 +6,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { createHash } from "node:crypto";
-import {
-  ClientSession,
-  HydratedDocument,
-  Model,
-  Types,
-} from "mongoose";
+import { ClientSession, HydratedDocument, Model, Types } from "mongoose";
 import { AuditService } from "../auth/audit.service";
 import type { CurrentActor } from "../auth/auth.types";
 import { Device, Part, PartSerial } from "../equipment/equipment.schemas";
@@ -20,10 +15,7 @@ import {
   InventoryBalance,
   InventoryTransaction,
 } from "../inventory/inventory.schemas";
-import {
-  CreateInboundReceiptDto,
-  ReverseReceiptDto,
-} from "./receipt.dto";
+import { CreateInboundReceiptDto, ReverseReceiptDto } from "./receipt.dto";
 import { IdempotencyKey, InboundReceipt } from "./receipt.schemas";
 
 const populate = [
@@ -205,8 +197,13 @@ export class ReceiptService {
       });
       return { data: await receipt.populate(populate) };
     } catch (error) {
-      if (this.duplicate(error))
+      if (this.duplicate(error)) {
+        const keyPattern = (error as { keyPattern?: Record<string, unknown> })
+          .keyPattern;
+        if (keyPattern?.assetCode || keyPattern?.serial)
+          throw new ConflictException({ code: "ASSET_CODE_OR_SERIAL_EXISTS" });
         throw new ConflictException({ code: "RECEIPT_CODE_EXISTS" });
+      }
       throw error;
     }
   }
@@ -235,7 +232,8 @@ export class ReceiptService {
             receiptDate: input.receiptDate,
             warehouseId: input.warehouseId,
             source: input.source,
-            requiresApproval: input.requiresApproval ?? receipt.requiresApproval,
+            requiresApproval:
+              input.requiresApproval ?? receipt.requiresApproval,
             openingSource: input.openingSource?.trim(),
             openingReason: input.openingReason?.trim(),
             attachments:
@@ -267,8 +265,7 @@ export class ReceiptService {
         },
         { new: true, runValidators: true },
       );
-      if (!updated)
-        throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
+      if (!updated) throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
       await this.audit.write({
         actorUserId: actor.userId,
         action: "INBOUND_RECEIPT_DRAFT_UPDATED",
@@ -502,17 +499,19 @@ export class ReceiptService {
           });
         const totals = new Map<
           string,
-          { partId: Types.ObjectId; warehouseId: Types.ObjectId; quantity: number }
+          {
+            partId: Types.ObjectId;
+            warehouseId: Types.ObjectId;
+            quantity: number;
+          }
         >();
         for (const tx of originalTxs) {
           const key = `${tx.partId.toString()}:${tx.warehouseId.toString()}`;
-          const entry =
-            totals.get(key) ??
-            {
-              partId: tx.partId,
-              warehouseId: tx.warehouseId,
-              quantity: 0,
-            };
+          const entry = totals.get(key) ?? {
+            partId: tx.partId,
+            warehouseId: tx.warehouseId,
+            quantity: 0,
+          };
           entry.quantity += tx.quantity;
           totals.set(key, entry);
         }
@@ -560,7 +559,13 @@ export class ReceiptService {
             { session },
           );
         }
-        await this.reverseSerialsAndStock(receipt, totals, input, actor, session);
+        await this.reverseSerialsAndStock(
+          receipt,
+          totals,
+          input,
+          actor,
+          session,
+        );
         // 6) Đánh dấu phiếu REVERSED (chống race: chỉ update khi vẫn COMPLETED)
         const changed = await this.receipts.updateOne(
           { _id: receipt._id, status: "COMPLETED" },
@@ -616,7 +621,8 @@ export class ReceiptService {
       if (inStock !== serials.length)
         throw new ConflictException({
           code: "PART_SERIAL_NOT_REVERSIBLE",
-          message: "Không thể đảo phiếu vì có serial linh kiện đã xuất khỏi kho.",
+          message:
+            "Không thể đảo phiếu vì có serial linh kiện đã xuất khỏi kho.",
         });
       await this.partSerials.updateMany(
         {

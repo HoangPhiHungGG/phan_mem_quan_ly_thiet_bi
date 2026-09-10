@@ -1,14 +1,28 @@
 import { Construction } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 export function NotImplemented({ title }: { title: string }) {
+  const descriptions: Record<string, string> = {
+    "Sửa chữa": "Quản lý tiếp nhận, sửa chữa và hoàn tất thiết bị.",
+    "Kiểm kê": "Theo dõi các đợt kiểm kê tài sản và chênh lệch thực tế.",
+    "Thanh lý": "Quản lý hồ sơ và trạng thái thanh lý tài sản.",
+    "Báo cáo": "Tổng hợp dữ liệu tài sản và hoạt động kho.",
+  };
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 py-20">
-      <Construction className="h-12 w-12 text-muted-foreground" />
-      <h2 className="mt-4 text-xl font-semibold">{title}</h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Chưa triển khai. Chức năng này sẽ được phát triển trong các bước tiếp
-        theo.
-      </p>
+    <div className="mx-auto w-full max-w-5xl">
+      <PageHeader
+        title={title}
+        description={
+          descriptions[title] ?? `Quản lý nghiệp vụ ${title.toLowerCase()}.`
+        }
+      />
+      <EmptyState
+        icon={<Construction className="h-7 w-7 text-muted-foreground" />}
+        title={`Chưa có dữ liệu ${title.toLowerCase()}`}
+        description={`Các hồ sơ ${title.toLowerCase()} được tạo sẽ xuất hiện tại đây.`}
+        className="min-h-[190px] max-w-none border-dashed shadow-none"
+      />
     </div>
   );
 }

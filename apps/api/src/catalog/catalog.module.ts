@@ -11,6 +11,10 @@ import {
   Warehouse,
   WarehouseSchema,
 } from "../identity/identity.schemas";
+import { OperationDocument } from "../operations/operation.schemas";
+import {
+  OperationDocumentSchema,
+} from "../operations/operation.schemas";
 import {
   Device,
   DeviceSchema,
@@ -28,6 +32,8 @@ import {
   KeeperSchema,
   Location,
   LocationSchema,
+  Position,
+  PositionSchema,
   Supplier,
   SupplierSchema,
   Unit,
@@ -41,6 +47,7 @@ import { CatalogService } from "./catalog.service";
     AuthModule,
     MongooseModule.forFeature([
       { name: Keeper.name, schema: KeeperSchema },
+      { name: Position.name, schema: PositionSchema },
       { name: Supplier.name, schema: SupplierSchema },
       { name: DeviceType.name, schema: DeviceTypeSchema },
       { name: Unit.name, schema: UnitSchema },
@@ -53,6 +60,7 @@ import { CatalogService } from "./catalog.service";
       { name: PartSerial.name, schema: PartSerialSchema },
       { name: User.name, schema: UserSchema },
       { name: RoleAssignment.name, schema: RoleAssignmentSchema },
+      { name: OperationDocument.name, schema: OperationDocumentSchema },
     ]),
   ],
   controllers: [CatalogController],

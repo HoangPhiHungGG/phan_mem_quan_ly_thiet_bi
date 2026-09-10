@@ -16,6 +16,7 @@ import type { CurrentActor } from "../auth/auth.types";
 import {
   CreateOperationDto,
   ReceiveOperationDto,
+  ReturnLoanDto,
   RejectOperationDto,
   UpdateOperationDto,
 } from "./operation.dto";
@@ -40,6 +41,11 @@ export class OperationController {
     @Param("id") id: string,
   ) {
     return this.service.get(id);
+  }
+  @Get(":id/recoverable-items") @RequirePermissions("operations.read") recoverableItems(
+    @Param("id") id: string,
+  ) {
+    return this.service.getRecoverableItems(id);
   }
   @Post() @RequirePermissions("operations.manage") create(
     @Body() input: CreateOperationDto,
@@ -66,6 +72,13 @@ export class OperationController {
     @CurrentUser() actor: CurrentActor,
   ) {
     return this.service.removeDraft(id, actor);
+  }
+  @Patch(":id/return") @RequirePermissions("operations.manage") returnDevices(
+    @Param("id") id: string,
+    @Body() input: ReturnLoanDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.service.returnDevices(id, input, actor);
   }
   @Patch(":id/receive") @RequirePermissions("operations.manage") receive(
     @Param("id") id: string,

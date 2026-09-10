@@ -41,6 +41,49 @@ type DeviceDetail = {
 
 type Attachment = { name: string; url?: string; note?: string };
 
+type RepairHistory = {
+  _id: string;
+  code: string;
+  repairDate: string;
+  issueDescription: string;
+  vendor?: string;
+  repairType: string;
+  totalCost: number;
+  result?: string;
+  status: string;
+};
+type LiquidationHistory = {
+  _id: string;
+  code: string;
+  liquidationDate?: string;
+  method: string;
+  totalValue: number;
+  completedBy?: Ref;
+  lines: Array<{ deviceId?: Ref; liquidationValue: number }>;
+};
+const LIQUIDATION_METHOD_LABELS: Record<string, string> = {
+  SALE: "Bán",
+  DESTROY: "Tiêu hủy",
+  DONATE: "Cho/tặng",
+  TRANSFER: "Chuyển nhượng",
+  OTHER: "Khác",
+};
+
+const REPAIR_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Nháp",
+  RECEIVED: "Đã tiếp nhận",
+  REPAIRING: "Đang sửa chữa",
+  COMPLETED: "Hoàn tất",
+  CANCELLED: "Đã hủy",
+  UNREPAIRABLE: "Không thể sửa",
+};
+
+const REPAIR_TYPE_LABELS: Record<string, string> = {
+  INTERNAL: "Nội bộ",
+  WARRANTY: "Bảo hành",
+  EXTERNAL: "Đơn vị bên ngoài",
+};
+
 export default function DeviceDetailPage() {
   const { hasPermission } = useAuth();
   const params = useParams<{ id: string }>();
@@ -50,6 +93,10 @@ export default function DeviceDetailPage() {
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [repairHistory, setRepairHistory] = useState<RepairHistory[]>([]);
+  const [liquidationHistory, setLiquidationHistory] = useState<
+    LiquidationHistory[]
+  >([]);
   const [opts, setOpts] = useState<Record<string, CatalogOption[]>>({});
   const canManage = hasPermission("devices.manage");
 
@@ -65,6 +112,20 @@ export default function DeviceDetailPage() {
   }, [id]);
 
   useEffect(() => load(), [load]);
+  useEffect(() => {
+    if (!hasPermission("repair.view")) return;
+    apiFetch<{ data: RepairHistory[] }>(`/api/repairs/device/${id}/history`)
+      .then((result) => setRepairHistory(result.data))
+      .catch(() => setRepairHistory([]));
+  }, [hasPermission, id]);
+  useEffect(() => {
+    if (!hasPermission("liquidation.view")) return;
+    apiFetch<{ data: LiquidationHistory[] }>(
+      `/api/liquidations/device/${id}/history`,
+    )
+      .then((result) => setLiquidationHistory(result.data))
+      .catch(() => setLiquidationHistory([]));
+  }, [hasPermission, id]);
   useEffect(() => {
     Promise.all([
       loadCatalogOptions("item-models"),
@@ -209,6 +270,133 @@ export default function DeviceDetailPage() {
           </div>
         ))}
       </dl>
+      {hasPermission("repair.view") && (
+        <section className="rounded-lg border bg-card p-4">
+          <div className="mb-3">
+            <h3 className="text-base font-semibold">Lịch sử sửa chữa</h3>
+            <p className="text-xs text-muted-foreground">
+              Toàn bộ phiếu sửa chữa đã lập cho thiết bị này.
+            </p>
+          </div>
+          {repairHistory.length === 0 ? (
+            <p className="rounded-md border border-dashed p-5 text-center text-sm text-muted-foreground">
+              Thiết bị chưa có lịch sử sửa chữa.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="p-2">Ngày</th>
+                    <th className="p-2">Mã phiếu</th>
+                    <th className="p-2">Lỗi</th>
+                    <th className="p-2">Đơn vị sửa</th>
+                    <th className="p-2 text-right">Chi phí</th>
+                    <th className="p-2">Kết quả</th>
+                    <th className="p-2">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {repairHistory.map((repair) => (
+                    <tr key={repair._id} className="border-b last:border-0">
+                      <td className="p-2">{formatDate(repair.repairDate)}</td>
+                      <td className="p-2 font-medium">
+                        <Link
+                          href={`/sua-chua?repairId=${repair._id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {repair.code}
+                        </Link>
+                      </td>
+                      <td className="max-w-56 p-2">
+                        <p className="line-clamp-2">
+                          {repair.issueDescription}
+                        </p>
+                      </td>
+                      <td className="p-2">
+                        {repair.vendor ||
+                          REPAIR_TYPE_LABELS[repair.repairType] ||
+                          "—"}
+                      </td>
+                      <td className="p-2 text-right">
+                        {formatMoney(repair.totalCost)}
+                      </td>
+                      <td className="max-w-52 p-2">
+                        <p className="line-clamp-2">{repair.result ?? "—"}</p>
+                      </td>
+                      <td className="p-2">
+                        {REPAIR_STATUS_LABELS[repair.status] ?? repair.status}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+      {hasPermission("liquidation.view") && (
+        <section className="rounded-lg border bg-card p-4">
+          <h3 className="text-base font-semibold">Lịch sử thanh lý</h3>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Thông tin thanh lý vẫn được lưu sau khi tài sản rời vòng đời sử
+            dụng.
+          </p>
+          {liquidationHistory.length === 0 ? (
+            <p className="rounded-md border border-dashed p-5 text-center text-sm text-muted-foreground">
+              Thiết bị chưa được thanh lý.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b bg-muted/50">
+                  <tr>
+                    <th className="p-2">Ngày thanh lý</th>
+                    <th className="p-2">Mã phiếu</th>
+                    <th className="p-2">Hình thức</th>
+                    <th className="p-2 text-right">Giá trị</th>
+                    <th className="p-2">Người thực hiện</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liquidationHistory.map((item) => {
+                    const line = item.lines.find(
+                      (value) => value.deviceId?._id === id,
+                    );
+                    return (
+                      <tr key={item._id} className="border-b last:border-0">
+                        <td className="p-2">
+                          {formatDate(item.liquidationDate)}
+                        </td>
+                        <td className="p-2">
+                          <Link
+                            href={`/thanh-ly?liquidationId=${item._id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {item.code}
+                          </Link>
+                        </td>
+                        <td className="p-2">
+                          {LIQUIDATION_METHOD_LABELS[item.method] ??
+                            item.method}
+                        </td>
+                        <td className="p-2 text-right">
+                          {formatMoney(
+                            line?.liquidationValue ?? item.totalValue,
+                          )}
+                        </td>
+                        <td className="p-2">
+                          {item.completedBy?.displayName ?? "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
       {canManage && (
         <>
           <form

@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
+import { LOAN_OUT_CONDITIONS, LOAN_IN_CONDITIONS } from "./loan.constants";
+
 export const OPERATION_TYPES = [
   "ISSUE",
   "LOAN",
@@ -9,6 +11,7 @@ export const OPERATION_TYPES = [
 ] as const;
 export const OPERATION_STATUSES = [
   "DRAFT",
+  "PENDING",
   "IN_TRANSIT",
   "PARTIAL",
   "COMPLETED",
@@ -28,10 +31,54 @@ export class OperationLine {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Part" })
   partId?: Types.ObjectId;
   @Prop({ required: true, min: 1, default: 1 }) quantity!: number;
+  @Prop({ type: [String], default: [] }) serials?: string[];
   @Prop({ default: false }) returned!: boolean;
   @Prop({ enum: ["GOOD", "DEGRADED", "BROKEN"] }) handoverCondition?: string;
-  @Prop({ enum: ["GOOD", "DEGRADED", "BROKEN"] }) receivedCondition?: string;
+  @Prop({ enum: LOAN_IN_CONDITIONS }) receivedCondition?: string;
   @Prop({ trim: true, maxlength: 500 }) note?: string;
+  @Prop({ enum: LOAN_OUT_CONDITIONS }) conditionOut?: string;
+  @Prop({ trim: true, maxlength: 500 }) conditionOutDescription?: string;
+  @Prop({ trim: true, maxlength: 500 }) accessoryNote?: string;
+  @Prop({ trim: true }) deviceName?: string;
+  @Prop({ trim: true }) assetCode?: string;
+  @Prop({ trim: true }) serial?: string;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Location" })
+  loanSourceLocationId?: Types.ObjectId;
+  @Prop() handedOverAt?: Date;
+  @Prop() returnedAt?: Date;
+  @Prop({ enum: LOAN_IN_CONDITIONS }) conditionIn?: string;
+  @Prop({ trim: true, maxlength: 500 }) conditionInDescription?: string;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "User" })
+  returnReceivedBy?: Types.ObjectId;
+  @Prop({ trim: true, maxlength: 500 }) returnNote?: string;
+  @Prop({ enum: ["IN_STOCK", "REPAIRING", "LOST"] }) returnResult?: string;
+}
+
+@Schema({ _id: false })
+export class LoanReturnItem {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Device", required: true })
+  deviceId!: Types.ObjectId;
+  @Prop() deviceName?: string;
+  @Prop() assetCode?: string;
+  @Prop() serial?: string;
+  @Prop() conditionOut?: string;
+  @Prop() conditionOutDescription?: string;
+  @Prop({ required: true, enum: LOAN_IN_CONDITIONS }) conditionIn!: string;
+  @Prop({ trim: true, maxlength: 500 }) conditionInDescription?: string;
+  @Prop({ trim: true, maxlength: 500 }) note?: string;
+  @Prop({ required: true, enum: ["IN_STOCK", "REPAIRING", "LOST"] })
+  result!: string;
+}
+@Schema()
+export class LoanReturn {
+  @Prop({ type: MongooseSchema.Types.ObjectId, auto: true })
+  _id!: Types.ObjectId;
+  @Prop({ required: true }) returnedAt!: Date;
+  @Prop({ required: true }) recordedAt!: Date;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "User", required: true })
+  receivedBy!: Types.ObjectId;
+  @Prop({ trim: true, maxlength: 1000 }) note?: string;
+  @Prop({ type: [LoanReturnItem], required: true }) items!: LoanReturnItem[];
 }
 
 @Schema({
@@ -68,6 +115,12 @@ export class OperationDocument {
   senderKeeperId?: Types.ObjectId;
   @Prop() dueDate?: Date;
   @Prop({ required: true, trim: true, maxlength: 1000 }) reason!: string;
+  @Prop({ type: [LoanReturn], default: undefined })
+  returnHistory?: LoanReturn[];
+  @Prop({ trim: true, maxlength: 1000 }) note?: string;
+  @Prop() completedAt?: Date;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "User" })
+  completedBy?: Types.ObjectId;
   @Prop({
     type: [OperationLine],
     validate: [(v: unknown[]) => v.length > 0, "OPERATION_LINES_REQUIRED"],
@@ -81,9 +134,15 @@ export class OperationDocument {
   receivedBy?: Types.ObjectId;
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "User" })
   closedBy?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "User" })
+  updatedBy?: Types.ObjectId;
   @Prop() dispatchedAt?: Date;
   @Prop() receivedAt?: Date;
+  @Prop() closedAt?: Date;
   @Prop({ trim: true, maxlength: 500 }) rejectionReason?: string;
+  // Link Recovery to its original Issue
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "OperationDocument" })
+  issueId?: Types.ObjectId;
 }
 export const OperationDocumentSchema =
   SchemaFactory.createForClass(OperationDocument);

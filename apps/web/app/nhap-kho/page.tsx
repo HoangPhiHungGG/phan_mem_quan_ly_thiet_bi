@@ -193,6 +193,7 @@ export default function InboundReceiptsPage() {
   }
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     setError("");
     setNotice("");
     const form = new FormData(event.currentTarget);
@@ -307,9 +308,12 @@ export default function InboundReceiptsPage() {
             });
             setNotice("Đã tạo phiếu chờ duyệt. Tồn kho chưa thay đổi.");
           } else {
-            await apiFetch(`/api/inbound-receipts/${result.data._id}/complete`, {
-              method: "PATCH",
-            });
+            await apiFetch(
+              `/api/inbound-receipts/${result.data._id}/complete`,
+              {
+                method: "PATCH",
+              },
+            );
             setNotice("Đã hoàn tất nhập kho. Tồn kho đã được ghi nhận.");
           }
         } else {
@@ -339,9 +343,7 @@ export default function InboundReceiptsPage() {
       setSaving(false);
     }
   }
-  function refId(
-    value: string | { _id?: string } | null | undefined,
-  ): string {
+  function refId(value: string | { _id?: string } | null | undefined): string {
     if (!value) return "";
     return typeof value === "string" ? value : String(value._id ?? "");
   }
@@ -544,8 +546,7 @@ export default function InboundReceiptsPage() {
               type="date"
               required
               defaultValue={
-                editing?.receiptDate ??
-                new Date().toISOString().slice(0, 10)
+                editing?.receiptDate ?? new Date().toISOString().slice(0, 10)
               }
             />
             <Select
@@ -593,8 +594,7 @@ export default function InboundReceiptsPage() {
               type="checkbox"
               defaultChecked={editing?.requiresApproval ?? false}
             />{" "}
-            Yêu cầu duyệt
-            trước khi hoàn tất
+            Yêu cầu duyệt trước khi hoàn tất
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input

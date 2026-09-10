@@ -16,11 +16,13 @@ import {
   Warehouse,
 } from "../identity/identity.schemas";
 import { Device, Part, PartSerial } from "../equipment/equipment.schemas";
+import { OperationDocument } from "../operations/operation.schemas";
 import {
   DeviceType,
   ItemModel,
   Keeper,
   Location,
+  Position,
   Supplier,
   Unit,
 } from "./catalog.schemas";
@@ -49,6 +51,7 @@ type CatalogEntry = {
 export class CatalogService {
   constructor(
     @InjectModel(Keeper.name) private readonly keepers: AnyModel,
+    @InjectModel(Position.name) private readonly positions: AnyModel,
     @InjectModel(Supplier.name) private readonly suppliers: AnyModel,
     @InjectModel(DeviceType.name) private readonly deviceTypes: AnyModel,
     @InjectModel(Unit.name) private readonly units: AnyModel,
@@ -62,6 +65,8 @@ export class CatalogService {
     @InjectModel(User.name) private readonly users: AnyModel,
     @InjectModel(RoleAssignment.name)
     private readonly roleAssignments: AnyModel,
+    @InjectModel(OperationDocument.name)
+    private readonly operations: AnyModel,
     private readonly audit: AuditService,
   ) {}
   private readonly entries: Record<CatalogType, CatalogEntry> = {
@@ -71,7 +76,10 @@ export class CatalogService {
       codeRequired: true,
       searchFields: ["code", "name"],
       nameField: "name",
-      populates: [{ path: "parentId", select: "code name" }],
+      populates: [
+        { path: "parentId", select: "code name" },
+        { path: "managerKeeperId", select: "displayName employeeCode" },
+      ],
       references: [
         { model: this.users, path: "primaryDepartmentId", label: "tài khoản" },
         { model: this.departments, path: "parentId", label: "bộ phận con" },
@@ -117,11 +125,45 @@ export class CatalogService {
       label: "Người giữ",
       model: this.keepers,
       codeRequired: false,
-      searchFields: ["code", "displayName", "employeeCode"],
+      searchFields: [
+        "code",
+        "displayName",
+        "employeeCode",
+        "email",
+      ],
       nameField: "displayName",
-      populates: [{ path: "departmentId", select: "code name" }],
+      populates: [
+        { path: "departmentId", select: "code name" },
+        { path: "positionId", select: "code name" },
+      ],
       references: [
         { model: this.devices, path: "keeperId", label: "thiết bị" },
+        {
+          model: this.departments,
+          path: "managerKeeperId",
+          label: "bộ phận (người phụ trách)",
+        },
+        {
+          model: this.operations,
+          path: "receiverKeeperId",
+          label: "chứng từ",
+        },
+        {
+          model: this.operations,
+          path: "senderKeeperId",
+          label: "chứng từ",
+        },
+      ],
+    },
+    positions: {
+      label: "Chức vụ",
+      model: this.positions,
+      codeRequired: true,
+      searchFields: ["code", "name"],
+      nameField: "name",
+      populates: [],
+      references: [
+        { model: this.keepers, path: "positionId", label: "người giữ" },
       ],
     },
     suppliers: {
@@ -217,6 +259,9 @@ export class CatalogService {
       q?: string;
       isActive?: string;
       deviceTypeId?: string;
+      departmentId?: string;
+      positionId?: string;
+      status?: string;
       page?: string;
       limit?: string;
     },
@@ -229,6 +274,11 @@ export class CatalogService {
     if (query.isActive === "false") filter.isActive = false;
     if (type === "item-models" && query.deviceTypeId)
       filter.deviceTypeId = query.deviceTypeId;
+    if (type === "keepers" && query.departmentId)
+      filter.departmentId = query.departmentId;
+    if (type === "keepers" && query.positionId)
+      filter.positionId = query.positionId;
+    if (type === "keepers" && query.status) filter.status = query.status;
     if (query.q?.trim()) {
       const pattern = new RegExp(this.escapeRegex(query.q.trim()), "i");
       filter.$or = entry.searchFields.map((field) => ({ [field]: pattern }));
@@ -280,7 +330,10 @@ export class CatalogService {
       if (input.employeeCode?.trim())
         doc.employeeCode = input.employeeCode.trim().toUpperCase();
       if (input.phone?.trim()) doc.phone = input.phone.trim();
+      if (input.email?.trim()) doc.email = input.email.trim().toLowerCase();
       if (input.note?.trim()) doc.note = input.note.trim();
+      if (input.joinedAt) doc.joinedAt = new Date(input.joinedAt);
+      if (input.status) doc.status = input.status;
       if (input.departmentId) {
         await this.assertRef(
           this.departments,
@@ -288,6 +341,14 @@ export class CatalogService {
           "DEPARTMENT_REFERENCE_INVALID",
         );
         doc.departmentId = input.departmentId;
+      }
+      if (input.positionId) {
+        await this.assertRef(
+          this.positions,
+          input.positionId,
+          "POSITION_REFERENCE_INVALID",
+        );
+        doc.positionId = input.positionId;
       }
     } else {
       doc.name = name;
@@ -340,6 +401,14 @@ export class CatalogService {
             "DEPARTMENT_REFERENCE_INVALID",
           );
           doc.parentId = input.parentId;
+        }
+        if (input.managerKeeperId) {
+          await this.assertRef(
+            this.keepers,
+            input.managerKeeperId,
+            "KEEPER_REFERENCE_INVALID",
+          );
+          doc.managerKeeperId = input.managerKeeperId;
         }
         break;
       }
@@ -415,6 +484,35 @@ export class CatalogService {
       if (input.phone !== undefined) update.phone = input.phone.trim();
       if (input.note !== undefined) update.note = input.note.trim();
     }
+    if (type === "keepers") {
+      if (input.employeeCode !== undefined)
+        update.employeeCode = input.employeeCode.trim().toUpperCase() || undefined;
+      if (input.email !== undefined)
+        update.email = input.email.trim().toLowerCase() || undefined;
+      if (input.joinedAt !== undefined)
+        update.joinedAt = input.joinedAt ? new Date(input.joinedAt) : undefined;
+      if (input.status !== undefined) update.status = input.status;
+      if (input.departmentId !== undefined) {
+        if (input.departmentId) {
+          await this.assertRef(
+            this.departments,
+            input.departmentId,
+            "DEPARTMENT_REFERENCE_INVALID",
+          );
+          update.departmentId = input.departmentId;
+        } else update.departmentId = undefined;
+      }
+      if (input.positionId !== undefined) {
+        if (input.positionId) {
+          await this.assertRef(
+            this.positions,
+            input.positionId,
+            "POSITION_REFERENCE_INVALID",
+          );
+          update.positionId = input.positionId;
+        } else update.positionId = undefined;
+      }
+    }
     if (type === "suppliers") {
       if (input.email !== undefined)
         update.email = input.email.trim().toLowerCase();
@@ -463,6 +561,16 @@ export class CatalogService {
             "DEPARTMENT_REFERENCE_INVALID",
           );
           update.parentId = input.parentId;
+        }
+        if (input.managerKeeperId !== undefined) {
+          if (input.managerKeeperId) {
+            await this.assertRef(
+              this.keepers,
+              input.managerKeeperId,
+              "KEEPER_REFERENCE_INVALID",
+            );
+            update.managerKeeperId = input.managerKeeperId;
+          } else update.managerKeeperId = undefined;
         }
         break;
       }

@@ -127,6 +127,7 @@ export class EquipmentService {
     q?: string;
     deviceTypeId?: string;
     modelId?: string;
+    available?: string;
     usageStatus?: string;
     techCondition?: string;
     departmentId?: string;
@@ -163,6 +164,12 @@ export class EquipmentService {
     if (query.keeperId) filter.keeperId = query.keeperId;
     if (query.warehouseId) filter.warehouseId = query.warehouseId;
     if (query.locationId) filter.locationId = query.locationId;
+    if (query.available === "true")
+      Object.assign(filter, {
+        usageStatus: "IN_STOCK",
+        techCondition: { $ne: "BROKEN" },
+        keeperId: null,
+      });
     const [items, total] = await Promise.all([
       this.devices
         .find(filter)

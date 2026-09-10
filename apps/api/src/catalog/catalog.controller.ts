@@ -36,6 +36,9 @@ export class CatalogController {
       q?: string;
       isActive?: string;
       deviceTypeId?: string;
+      departmentId?: string;
+      positionId?: string;
+      status?: string;
       page?: string;
       limit?: string;
     },

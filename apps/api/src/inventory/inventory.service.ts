@@ -65,6 +65,7 @@ export class InventoryService {
         .populate("partId", "code name")
         .populate("warehouseId", "code name")
         .populate("receiptId", "code")
+        .populate("operationId", "code type")
         .populate("createdBy", "displayName employeeCode")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)

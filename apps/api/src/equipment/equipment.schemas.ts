@@ -14,6 +14,7 @@ export const USAGE_STATUSES = [
   "LENT",
   "IN_TRANSIT",
   "DISPOSED",
+  "LOST",
 ] as const;
 export const PART_TRACKING_MODES = ["QUANTITY", "SERIAL"] as const;
 export const PART_SERIAL_STATUSES = [
@@ -88,6 +89,11 @@ export class Device {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Department" })
   departmentId?: Types.ObjectId;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "OperationDocument" })
+  loanId?: Types.ObjectId;
+  @Prop() borrowedAt?: Date;
+  @Prop() loanDueDate?: Date;
 
   // Người giữ chỉ thay đổi qua nghiệp vụ cấp phát/thu hồi
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Keeper" })

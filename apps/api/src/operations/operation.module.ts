@@ -2,6 +2,8 @@ import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { AuthModule } from "../auth/auth.module";
 import {
+  ItemModel,
+  ItemModelSchema,
   Keeper,
   KeeperSchema,
   Location,
@@ -12,6 +14,8 @@ import {
   DeviceSchema,
   Part,
   PartSchema,
+  PartSerial,
+  PartSerialSchema,
 } from "../equipment/equipment.schemas";
 import {
   Department,
@@ -30,6 +34,7 @@ import {
   OperationDocument,
   OperationDocumentSchema,
 } from "./operation.schemas";
+import { LoanService } from "./loan.service";
 import { OperationService } from "./operation.service";
 import {
   IdempotencyKey,
@@ -43,15 +48,17 @@ import {
       { name: IdempotencyKey.name, schema: IdempotencyKeySchema },
       { name: Device.name, schema: DeviceSchema },
       { name: Part.name, schema: PartSchema },
+      { name: PartSerial.name, schema: PartSerialSchema },
       { name: InventoryBalance.name, schema: InventoryBalanceSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
       { name: Warehouse.name, schema: WarehouseSchema },
       { name: Department.name, schema: DepartmentSchema },
       { name: Keeper.name, schema: KeeperSchema },
+      { name: ItemModel.name, schema: ItemModelSchema },
       { name: Location.name, schema: LocationSchema },
     ]),
   ],
   controllers: [OperationController],
-  providers: [OperationService],
+  providers: [OperationService, LoanService],
 })
 export class OperationModule {}

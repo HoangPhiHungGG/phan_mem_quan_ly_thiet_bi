@@ -38,6 +38,8 @@ export class InventoryTransaction {
       "TRANSFER_OUT",
       "DISPOSAL",
       "ADJUSTMENT",
+      "LIQUIDATION",
+      "INVENTORY_ADJUSTMENT",
     ],
   })
   type!: string;
@@ -49,6 +51,12 @@ export class InventoryTransaction {
   receiptId?: Types.ObjectId;
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "OperationDocument" })
   operationId?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "RepairDocument" })
+  repairId?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "LiquidationDocument" })
+  liquidationId?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "InventoryCountDocument" })
+  inventoryCountId?: Types.ObjectId;
   @Prop({ min: 0 }) lineIndex?: number;
 }
 export const InventoryTransactionSchema =
@@ -56,3 +64,6 @@ export const InventoryTransactionSchema =
 InventoryTransactionSchema.index({ warehouseId: 1, partId: 1, createdAt: -1 });
 InventoryTransactionSchema.index({ receiptId: 1, lineIndex: 1 });
 InventoryTransactionSchema.index({ operationId: 1, lineIndex: 1 });
+InventoryTransactionSchema.index({ repairId: 1, lineIndex: 1 });
+InventoryTransactionSchema.index({ liquidationId: 1, lineIndex: 1 });
+InventoryTransactionSchema.index({ inventoryCountId: 1, lineIndex: 1 });

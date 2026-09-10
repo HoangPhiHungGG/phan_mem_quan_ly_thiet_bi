@@ -30,6 +30,26 @@ export const ALL_PERMISSIONS = [
   "opening-balance.manage",
   "operations.read",
   "operations.manage",
+  "repair.view",
+  "repair.create",
+  "repair.edit",
+  "repair.receive",
+  "repair.complete",
+  "repair.cancel",
+  "liquidation.view",
+  "liquidation.create",
+  "liquidation.edit",
+  "liquidation.submit",
+  "liquidation.approve",
+  "liquidation.complete",
+  "liquidation.cancel",
+  "inventory.view",
+  "inventory.create",
+  "inventory.edit",
+  "inventory.perform",
+  "inventory.reconcile",
+  "inventory.complete",
+  "inventory.cancel",
   "purchases.read",
   "purchases.manage",
   "reports.read",
@@ -199,6 +219,10 @@ export class Department {
     default: [],
   })
   ancestorIds!: Types.ObjectId[];
+
+  // Người phụ trách bộ phận (tham chiếu tới nhân viên - Keeper)
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Keeper" })
+  managerKeeperId?: Types.ObjectId;
 
   @Prop({ default: true })
   isActive!: boolean;

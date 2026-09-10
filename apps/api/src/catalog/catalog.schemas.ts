@@ -2,13 +2,17 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Schema as MongooseSchema, Types } from "mongoose";
 
 export type KeeperDocument = HydratedDocument<Keeper>;
+export type PositionDocument = HydratedDocument<Position>;
 export type SupplierDocument = HydratedDocument<Supplier>;
 export type DeviceTypeDocument = HydratedDocument<DeviceType>;
 export type UnitDocument = HydratedDocument<Unit>;
 export type ItemModelDocument = HydratedDocument<ItemModel>;
 export type LocationDocument = HydratedDocument<Location>;
 
-// Người giữ thiết bị - không bắt buộc có tài khoản đăng nhập
+// Người giữ thiết bị (cũng là Nhân viên) - không bắt buộc có tài khoản đăng nhập.
+// Đây là nguồn dữ liệu nhân sự dùng chung cho Cấp phát / Mượn / Điều chuyển / Thu hồi.
+export const KEEPER_STATUSES = ["ACTIVE", "ON_LEAVE", "RESIGNED"] as const;
+
 @Schema({ collection: "keepers", timestamps: true })
 export class Keeper {
   @Prop({ trim: true, uppercase: true, maxlength: 50 })
@@ -17,14 +21,33 @@ export class Keeper {
   @Prop({ required: true, trim: true, maxlength: 120 })
   displayName!: string;
 
+  // Mã nhân viên (NV001, IT001...) - unique
   @Prop({ trim: true, uppercase: true, maxlength: 50 })
   employeeCode?: string;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Department" })
   departmentId?: Types.ObjectId;
 
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Position" })
+  positionId?: Types.ObjectId;
+
   @Prop({ trim: true, maxlength: 50 })
   phone?: string;
+
+  @Prop({ trim: true, lowercase: true, maxlength: 254 })
+  email?: string;
+
+  @Prop()
+  joinedAt?: Date;
+
+  // ACTIVE: Đang làm việc · ON_LEAVE: Tạm nghỉ · RESIGNED: Đã nghỉ việc
+  @Prop({
+    required: true,
+    type: String,
+    enum: KEEPER_STATUSES,
+    default: "ACTIVE",
+  })
+  status!: (typeof KEEPER_STATUSES)[number];
 
   @Prop({ trim: true, maxlength: 500 })
   note?: string;
@@ -38,8 +61,33 @@ export class Keeper {
 
 export const KeeperSchema = SchemaFactory.createForClass(Keeper);
 KeeperSchema.index({ code: 1 }, { unique: true, sparse: true });
+KeeperSchema.index(
+  { employeeCode: 1 },
+  { unique: true, sparse: true },
+);
 KeeperSchema.index({ displayName: 1 });
-KeeperSchema.index({ departmentId: 1, isActive: 1 });
+KeeperSchema.index({ departmentId: 1, status: 1 });
+KeeperSchema.index({ positionId: 1, status: 1 });
+KeeperSchema.index({ status: 1, isActive: 1 });
+
+// Chức vụ nhân viên
+@Schema({ collection: "positions", timestamps: true })
+export class Position {
+  @Prop({ required: true, trim: true, uppercase: true, maxlength: 50 })
+  code!: string;
+
+  @Prop({ required: true, trim: true, maxlength: 150 })
+  name!: string;
+
+  @Prop({ trim: true, maxlength: 500 })
+  description?: string;
+
+  @Prop({ default: true })
+  isActive!: boolean;
+}
+
+export const PositionSchema = SchemaFactory.createForClass(Position);
+PositionSchema.index({ code: 1 }, { unique: true });
 
 @Schema({ collection: "suppliers", timestamps: true })
 export class Supplier {

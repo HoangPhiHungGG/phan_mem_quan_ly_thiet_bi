@@ -37,6 +37,7 @@ export class EquipmentController {
       q?: string;
       deviceTypeId?: string;
       modelId?: string;
+      available?: string;
       usageStatus?: string;
       techCondition?: string;
       departmentId?: string;

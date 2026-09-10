@@ -1,5 +1,8 @@
 "use client";
 
+import { LoanPage } from "./loan-page";
+import { IssuePage } from "./issue-page";
+import { RecoveryPage } from "./recovery-page";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, Printer } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -44,6 +47,18 @@ const STATUS: Record<string, string> = {
 };
 
 export function OperationPage({ type }: { type: Kind }) {
+  return type === "ISSUE" ? (
+    <IssuePage />
+  ) : type === "LOAN" ? (
+    <LoanPage />
+  ) : type === "RECOVERY" ? (
+    <RecoveryPage />
+  ) : (
+    <LegacyOperationPage key={type} type={type} />
+  );
+}
+
+function LegacyOperationPage({ type }: { type: Kind }) {
   const { hasPermission } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -211,7 +226,7 @@ export function OperationPage({ type }: { type: Kind }) {
           {sourceRequired && (
             <Select
               name="sourceWarehouseId"
-              label="Kho xuất *"
+              label={type === "TRANSFER" ? "Nơi đi *" : "Kho xuất *"}
               required
               options={warehouses}
               placeholder="Chọn kho"
@@ -220,7 +235,7 @@ export function OperationPage({ type }: { type: Kind }) {
           {destinationRequired && (
             <Select
               name="destinationWarehouseId"
-              label="Kho nhận *"
+              label={type === "TRANSFER" ? "Nơi đến *" : "Kho nhận *"}
               required={destinationRequired}
               options={warehouses}
               placeholder="Chọn kho"
@@ -262,7 +277,7 @@ export function OperationPage({ type }: { type: Kind }) {
             }
             options={[
               { value: "DEVICE", label: "Thiết bị" },
-              { value: "PART", label: "Linh kiện / vật tư" },
+              { value: "PART", label: "Linh kiện / " },
             ]}
           />
           {kind === "DEVICE" ? (
@@ -314,7 +329,7 @@ export function OperationPage({ type }: { type: Kind }) {
             className="md:col-span-2"
           />
           <div className="flex gap-2 md:col-span-2">
-            <Button type="submit">Lưu nháp</Button>
+            <Button type="submit">Lưu</Button>
             <Button
               type="button"
               variant="outline"
@@ -331,7 +346,10 @@ export function OperationPage({ type }: { type: Kind }) {
             <tr>
               <th className="p-3">Mã phiếu</th>
               <th className="p-3">Ngày</th>
-              <th className="p-3">Giao / nhận</th>
+              <th className="p-3">Nơi đi</th>
+              <th className="p-3">Nơi đến</th>
+              <th className="p-3">Số lượng</th>
+              <th className="p-3">Người tạo</th>
               <th className="p-3">Trạng thái</th>
               <th className="p-3">Thao tác</th>
             </tr>
@@ -339,13 +357,13 @@ export function OperationPage({ type }: { type: Kind }) {
           <tbody>
             {loading ? (
               <tr>
-                <td className="p-6" colSpan={5}>
+                <td className="p-6" colSpan={8}>
                   <Loader2 className="animate-spin" />
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td className="p-6 text-muted-foreground" colSpan={5}>
+                <td className="p-6 text-muted-foreground" colSpan={8}>
                   Chưa có chứng từ.
                 </td>
               </tr>
@@ -356,14 +374,29 @@ export function OperationPage({ type }: { type: Kind }) {
                   <td className="p-3">
                     {new Date(row.operationDate).toLocaleDateString("vi-VN")}
                   </td>
+                  <td className="p-3">{row.sourceWarehouseId?.name ?? "—"}</td>
                   <td className="p-3">
-                    {row.receiverKeeperId?.displayName ??
-                      row.destinationWarehouseId?.name ??
-                      ""}
+                    {row.destinationWarehouseId?.name ?? "—"}
+                  </td>
+                  <td className="p-3">
+                    {row.lines.reduce((sum, line) => sum + line.quantity, 0)}
+                  </td>
+                  <td className="p-3">
+                    {(row as Row & { createdBy?: { displayName?: string } })
+                      .createdBy?.displayName ?? "—"}
                   </td>
                   <td className="p-3">{STATUS[row.status] ?? row.status}</td>
                   <td className="p-3">
                     <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          window.alert(`${row.code}\n${row.reason}`)
+                        }
+                      >
+                        Xem chi tiết
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -376,7 +409,29 @@ export function OperationPage({ type }: { type: Kind }) {
                           size="sm"
                           onClick={() => action(row, "complete")}
                         >
-                          {type === "TRANSFER" ? "Xuất kho" : "Hoàn tất"}
+                          {type === "TRANSFER"
+                            ? "Hoàn tất điều chuyển"
+                            : "Hoàn tất"}
+                        </Button>
+                      )}
+                      {canManage && row.status === "DRAFT" && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={async () => {
+                            if (
+                              !window.confirm(
+                                "Bạn có chắc chắn muốn xóa phiếu này?",
+                              )
+                            )
+                              return;
+                            await apiFetch(`/api/operations/${row._id}`, {
+                              method: "DELETE",
+                            });
+                            await load();
+                          }}
+                        >
+                          Xóa
                         </Button>
                       )}
                       {canManage && row.status === "IN_TRANSIT" && (

@@ -1,18 +1,22 @@
 import {
   IsBoolean,
+  IsDateString,
   IsEmail,
+  IsEnum,
   IsMongoId,
   IsOptional,
   IsString,
   Length,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { KEEPER_STATUSES } from "./catalog.schemas";
 
 export const CATALOG_TYPES = [
   "departments",
   "warehouses",
   "locations",
   "keepers",
+  "positions",
   "suppliers",
   "device-types",
   "units",
@@ -98,6 +102,26 @@ export class CreateCatalogDto {
   @IsOptional()
   @IsMongoId()
   unitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsMongoId()
+  positionId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsMongoId()
+  managerKeeperId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  joinedAt?: string;
+
+  @ApiPropertyOptional({ enum: KEEPER_STATUSES })
+  @IsOptional()
+  @IsEnum(KEEPER_STATUSES)
+  status?: (typeof KEEPER_STATUSES)[number];
 }
 
 export class UpdateCatalogDto {
@@ -112,6 +136,12 @@ export class UpdateCatalogDto {
   @IsString()
   @Length(1, 150)
   name?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  employeeCode?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -172,6 +202,26 @@ export class UpdateCatalogDto {
   @IsOptional()
   @IsMongoId()
   unitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsMongoId()
+  positionId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsMongoId()
+  managerKeeperId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  joinedAt?: string;
+
+  @ApiPropertyOptional({ enum: KEEPER_STATUSES })
+  @IsOptional()
+  @IsEnum(KEEPER_STATUSES)
+  status?: (typeof KEEPER_STATUSES)[number];
 }
 
 export class UpdateCatalogStatusDto {

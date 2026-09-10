@@ -11,6 +11,11 @@ import { InventoryModule } from "./inventory/inventory.module";
 import { ReceiptModule } from "./receipts/receipt.module";
 import { OperationModule } from "./operations/operation.module";
 import { PurchaseModule } from "./purchases/purchase.module";
+import { RepairsModule } from "./repairs/repairs.module";
+import { LiquidationModule } from "./liquidations/liquidation.module";
+import { InventoryCountModule } from "./inventory-counts/inventory-count.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
+import { ReportModule } from "./reports/report.module";
 
 @Module({
   imports: [
@@ -35,6 +40,11 @@ import { PurchaseModule } from "./purchases/purchase.module";
     ReceiptModule,
     OperationModule,
     PurchaseModule,
+    RepairsModule,
+    LiquidationModule,
+    InventoryCountModule,
+    DashboardModule,
+    ReportModule,
     TransactionTestModule,
   ],
 })

@@ -7,6 +7,10 @@ node_modules/
 dist/
 build/
 .next/
+.next-dev/
+.next-issue-test/
+.next-loan-test/
+.next-warehouse-test/
 out/
 coverage/
 *.tsbuildinfo

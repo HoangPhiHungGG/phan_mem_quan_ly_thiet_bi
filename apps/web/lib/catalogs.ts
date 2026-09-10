@@ -1,28 +1,35 @@
-import { apiFetch } from "./api";
+import { apiFetchAllPages } from "./api";
 
 export type CatalogOption = {
   value: string;
   label: string;
   deviceTypeId?: string;
   warehouseId?: string;
-};
-
-type CatalogListResult = {
-  data: Array<Record<string, unknown>>;
-  meta: { page: number; limit: number; total: number; totalPages: number };
+  departmentId?: string;
 };
 
 /** Tải danh sách options cho select (chỉ danh mục đang hoạt động). */
 export async function loadCatalogOptions(
   type: string,
-  filters: { deviceTypeId?: string; warehouseId?: string } = {},
+  filters: {
+    deviceTypeId?: string;
+    warehouseId?: string;
+    departmentId?: string;
+    positionId?: string;
+    status?: string;
+  } = {},
 ): Promise<CatalogOption[]> {
   const params = new URLSearchParams({ isActive: "true", limit: "100" });
   if (filters.deviceTypeId) params.set("deviceTypeId", filters.deviceTypeId);
-  const result = await apiFetch<CatalogListResult>(
-    `/api/catalog/${type}?${params}`,
+  if (filters.warehouseId) params.set("warehouseId", filters.warehouseId);
+  if (filters.departmentId) params.set("departmentId", filters.departmentId);
+  if (filters.positionId) params.set("positionId", filters.positionId);
+  if (filters.status) params.set("status", filters.status);
+  const data = await apiFetchAllPages<Record<string, unknown>>(
+    `/api/catalog/${type}`,
+    params,
   );
-  return result.data.map((item) => ({
+  return data.map((item) => ({
     value: String(item._id),
     label:
       String(item.displayName ?? item.name ?? "") +
@@ -39,6 +46,12 @@ export async function loadCatalogOptions(
         : item.warehouseId
           ? String(item.warehouseId)
           : undefined,
+    departmentId:
+      item.departmentId && typeof item.departmentId === "object"
+        ? String((item.departmentId as { _id?: unknown })._id ?? "")
+        : item.departmentId
+          ? String(item.departmentId)
+          : undefined,
   }));
 }
 
@@ -54,6 +67,7 @@ export const USAGE_STATUS_LABELS: Record<string, string> = {
   IN_USE: "Đang sử dụng",
   REPAIRING: "Đang sửa chữa",
   LENT: "Đang cho mượn",
+  LOST: "Mất thiết bị",
   DISPOSED: "Đã thanh lý",
 };
 
