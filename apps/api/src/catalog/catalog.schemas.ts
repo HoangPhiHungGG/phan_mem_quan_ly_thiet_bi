@@ -5,6 +5,7 @@ export type KeeperDocument = HydratedDocument<Keeper>;
 export type PositionDocument = HydratedDocument<Position>;
 export type SupplierDocument = HydratedDocument<Supplier>;
 export type DeviceTypeDocument = HydratedDocument<DeviceType>;
+export type ComponentTypeDocument = HydratedDocument<ComponentType>;
 export type UnitDocument = HydratedDocument<Unit>;
 export type ItemModelDocument = HydratedDocument<ItemModel>;
 export type LocationDocument = HydratedDocument<Location>;
@@ -61,10 +62,7 @@ export class Keeper {
 
 export const KeeperSchema = SchemaFactory.createForClass(Keeper);
 KeeperSchema.index({ code: 1 }, { unique: true, sparse: true });
-KeeperSchema.index(
-  { employeeCode: 1 },
-  { unique: true, sparse: true },
-);
+KeeperSchema.index({ employeeCode: 1 }, { unique: true, sparse: true });
 KeeperSchema.index({ displayName: 1 });
 KeeperSchema.index({ departmentId: 1, status: 1 });
 KeeperSchema.index({ positionId: 1, status: 1 });
@@ -135,6 +133,26 @@ export class DeviceType {
 export const DeviceTypeSchema = SchemaFactory.createForClass(DeviceType);
 DeviceTypeSchema.index({ code: 1 }, { unique: true });
 
+// Danh mục riêng cho linh kiện. Không dùng DeviceType để tránh trộn Laptop/PC
+// với RAM/SSD/Cáp trong form và báo cáo linh kiện.
+@Schema({ collection: "component_types", timestamps: true })
+export class ComponentType {
+  @Prop({ required: true, trim: true, uppercase: true, maxlength: 50 })
+  code!: string;
+
+  @Prop({ required: true, trim: true, maxlength: 150 })
+  name!: string;
+
+  @Prop({ trim: true, maxlength: 500 })
+  description?: string;
+
+  @Prop({ default: true })
+  isActive!: boolean;
+}
+
+export const ComponentTypeSchema = SchemaFactory.createForClass(ComponentType);
+ComponentTypeSchema.index({ code: 1 }, { unique: true });
+
 @Schema({ collection: "units", timestamps: true })
 export class Unit {
   @Prop({ required: true, trim: true, uppercase: true, maxlength: 20 })
@@ -153,7 +171,10 @@ export class Unit {
 export const UnitSchema = SchemaFactory.createForClass(Unit);
 UnitSchema.index({ code: 1 }, { unique: true });
 
-// Mã hàng / model
+export const ITEM_MODEL_ENTITY_TYPES = ["DEVICE", "COMPONENT"] as const;
+
+// Một collection dùng chung về mặt kỹ thuật, nhưng mỗi bản ghi luôn thuộc đúng
+// một ngữ cảnh. Nhờ vậy dữ liệu cũ không cần bị xóa hay chuyển collection.
 @Schema({ collection: "item_models", timestamps: true })
 export class ItemModel {
   @Prop({ required: true, trim: true, uppercase: true, maxlength: 80 })
@@ -162,8 +183,14 @@ export class ItemModel {
   @Prop({ required: true, trim: true, maxlength: 150 })
   name!: string;
 
+  @Prop({ type: String, enum: ITEM_MODEL_ENTITY_TYPES })
+  entityType?: (typeof ITEM_MODEL_ENTITY_TYPES)[number];
+
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "DeviceType" })
   deviceTypeId?: Types.ObjectId;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "ComponentType" })
+  componentTypeId?: Types.ObjectId;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Unit" })
   unitId?: Types.ObjectId;
@@ -182,6 +209,8 @@ export const ItemModelSchema = SchemaFactory.createForClass(ItemModel);
 ItemModelSchema.index({ code: 1 }, { unique: true });
 ItemModelSchema.index({ name: 1 });
 ItemModelSchema.index({ deviceTypeId: 1, isActive: 1 });
+ItemModelSchema.index({ componentTypeId: 1, isActive: 1 });
+ItemModelSchema.index({ entityType: 1, isActive: 1 });
 
 // Vị trí lưu trữ trong kho
 @Schema({ collection: "locations", timestamps: true })

@@ -12,9 +12,7 @@ import {
   WarehouseSchema,
 } from "../identity/identity.schemas";
 import { OperationDocument } from "../operations/operation.schemas";
-import {
-  OperationDocumentSchema,
-} from "../operations/operation.schemas";
+import { OperationDocumentSchema } from "../operations/operation.schemas";
 import {
   Device,
   DeviceSchema,
@@ -24,6 +22,8 @@ import {
   PartSerialSchema,
 } from "../equipment/equipment.schemas";
 import {
+  ComponentType,
+  ComponentTypeSchema,
   DeviceType,
   DeviceTypeSchema,
   ItemModel,
@@ -50,6 +50,7 @@ import { CatalogService } from "./catalog.service";
       { name: Position.name, schema: PositionSchema },
       { name: Supplier.name, schema: SupplierSchema },
       { name: DeviceType.name, schema: DeviceTypeSchema },
+      { name: ComponentType.name, schema: ComponentTypeSchema },
       { name: Unit.name, schema: UnitSchema },
       { name: ItemModel.name, schema: ItemModelSchema },
       { name: Location.name, schema: LocationSchema },

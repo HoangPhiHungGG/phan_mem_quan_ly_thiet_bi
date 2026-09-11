@@ -8,7 +8,7 @@ import { WarehouseViewService } from "./warehouse-view.service";
 export class WarehouseViewController {
   constructor(private readonly view: WarehouseViewService) {}
   @Get(":id")
-  @RequirePermissions("catalog.read", "devices.read", "parts.read")
+  @RequirePermissions("warehouses.read", "devices.read", "parts.read")
   summary(@Param("id") id: string) {
     return this.view.summary(id);
   }

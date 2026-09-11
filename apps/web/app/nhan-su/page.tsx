@@ -37,6 +37,7 @@ type Department = {
   _id: string;
   code?: string;
   name?: string;
+  description?: string;
   managerKeeperId?: Ref;
   isActive?: boolean;
 };
@@ -238,7 +239,6 @@ export default function HumanResourcesPage() {
         }
       } else if (tab === "departments") {
         const body = {
-          code: value("code") || undefined,
           name: value("name"),
           managerKeeperId: value("managerKeeperId") || undefined,
           description: value("description") || undefined,
@@ -259,7 +259,6 @@ export default function HumanResourcesPage() {
         }
       } else {
         const body = {
-          code: value("code") || undefined,
           name: value("name"),
           description: value("description") || undefined,
         };
@@ -470,12 +469,6 @@ export default function HumanResourcesPage() {
         {isDept && (
           <>
             <Input
-              defaultValue={(target as Department)?.code ?? ""}
-              name="code"
-              label="Mã bộ phận *"
-              required
-            />
-            <Input
               defaultValue={(target as Department)?.name ?? ""}
               name="name"
               label="Tên bộ phận *"
@@ -492,6 +485,7 @@ export default function HumanResourcesPage() {
               }))}
             />
             <Textarea
+              defaultValue={(target as Department)?.description ?? ""}
               name="description"
               label="Mô tả"
               className="sm:col-span-2"
@@ -500,12 +494,6 @@ export default function HumanResourcesPage() {
         )}
         {!isEmp && !isDept && (
           <>
-            <Input
-              defaultValue={(target as Position)?.code ?? ""}
-              name="code"
-              label="Mã chức vụ *"
-              required
-            />
             <Input
               defaultValue={(target as Position)?.name ?? ""}
               name="name"

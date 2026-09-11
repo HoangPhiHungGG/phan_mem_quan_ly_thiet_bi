@@ -135,8 +135,8 @@ export class Part {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Unit", required: true })
   unitId!: Types.ObjectId;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "DeviceType" })
-  deviceTypeId?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "ComponentType" })
+  componentTypeId?: Types.ObjectId;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "ItemModel" })
   modelId?: Types.ObjectId;
@@ -165,7 +165,7 @@ export const PartSchema = SchemaFactory.createForClass(Part);
 PartSchema.index({ code: 1 }, { unique: true });
 PartSchema.index({ name: 1 });
 PartSchema.index({ trackingMode: 1, isActive: 1 });
-PartSchema.index({ deviceTypeId: 1 });
+PartSchema.index({ componentTypeId: 1 });
 PartSchema.index({ modelId: 1 });
 
 // Từng chiếc linh kiện có serial (chỉ tạo qua nghiệp vụ nhập kho ở bước sau)

@@ -36,6 +36,7 @@ const POPULATE = [
   { path: "updatedBy", select: "displayName employeeCode" },
   { path: "completedBy", select: "displayName employeeCode" },
   { path: "items.deviceTypeId", select: "code name" },
+  { path: "items.componentTypeId", select: "code name" },
   { path: "items.modelId", select: "code name" },
   { path: "items.unitId", select: "code name" },
   { path: "items.partId", select: "code name trackingMode spec" },
@@ -88,7 +89,7 @@ export class PurchaseService {
         items.push({
           kind: "PART",
           partId: part._id,
-          deviceTypeId: part.deviceTypeId,
+          componentTypeId: part.componentTypeId,
           modelId: part.modelId,
           unitId: part.unitId,
           name: it.name?.trim() || part.name || "",
@@ -122,6 +123,7 @@ export class PurchaseService {
           const model = await this.itemModels.findOne({
             _id: it.modelId,
             isActive: true,
+            entityType: "DEVICE",
           });
           if (!model)
             throw new BadRequestException({

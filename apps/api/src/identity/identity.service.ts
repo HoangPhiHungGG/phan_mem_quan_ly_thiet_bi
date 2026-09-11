@@ -25,6 +25,7 @@ import type {
   ResetPasswordDto,
   UpdateRoleDto,
   UpdateUserDto,
+  UpdateWarehouseDto,
 } from "./identity.dto";
 import {
   ALL_PERMISSIONS,
@@ -978,7 +979,12 @@ export class IdentityService implements OnModuleInit {
 
   async listWarehouses() {
     return {
-      data: await this.warehouses.find().sort({ name: 1 }).lean().exec(),
+      data: await this.warehouses
+        .find()
+        .populate("managerKeeperId", "displayName employeeCode")
+        .sort({ name: 1 })
+        .lean()
+        .exec(),
     };
   }
 
@@ -987,11 +993,46 @@ export class IdentityService implements OnModuleInit {
       await this.assertActiveDepartment(input.departmentId);
     return {
       data: await this.warehouses.create({
-        code: input.code.trim().toUpperCase(),
+        code:
+          input.code?.trim().toUpperCase() ??
+          `AUTO-${new Types.ObjectId().toHexString().toUpperCase()}`,
         name: input.name.trim(),
         departmentId: input.departmentId,
+        address: input.address?.trim(),
+        description: input.description?.trim(),
+        managerKeeperId: input.managerKeeperId,
       }),
     };
+  }
+
+  async updateWarehouse(id: string, input: UpdateWarehouseDto) {
+    if (!Types.ObjectId.isValid(id))
+      throw new NotFoundException({ code: "WAREHOUSE_NOT_FOUND" });
+    if (input.departmentId)
+      await this.assertActiveDepartment(input.departmentId);
+    if (
+      input.managerKeeperId &&
+      !(await this.keepers.exists({
+        _id: input.managerKeeperId,
+        isActive: true,
+      }))
+    )
+      throw new BadRequestException({ code: "KEEPER_REFERENCE_INVALID" });
+    const update: Record<string, unknown> = {
+      name: input.name.trim(),
+      address: input.address?.trim() || undefined,
+      description: input.description?.trim() || undefined,
+      managerKeeperId: input.managerKeeperId || undefined,
+      departmentId: input.departmentId || undefined,
+    };
+    if (input.code?.trim()) update.code = input.code.trim().toUpperCase();
+    const item = await this.warehouses
+      .findByIdAndUpdate(id, { $set: update }, { new: true })
+      .populate("managerKeeperId", "displayName employeeCode")
+      .lean()
+      .exec();
+    if (!item) throw new NotFoundException({ code: "WAREHOUSE_NOT_FOUND" });
+    return { data: item };
   }
 
   async bootstrapAdmin(input: {

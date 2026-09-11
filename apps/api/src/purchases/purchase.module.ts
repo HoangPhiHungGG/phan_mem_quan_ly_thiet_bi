@@ -5,6 +5,8 @@ import { AuditLog, AuditLogSchema } from "../auth/auth.schemas";
 import {
   DeviceType,
   DeviceTypeSchema,
+  ComponentType,
+  ComponentTypeSchema,
   ItemModel,
   ItemModelSchema,
   Supplier,
@@ -32,6 +34,7 @@ import { PurchaseService } from "./purchase.service";
       { name: Supplier.name, schema: SupplierSchema },
       { name: Part.name, schema: PartSchema },
       { name: DeviceType.name, schema: DeviceTypeSchema },
+      { name: ComponentType.name, schema: ComponentTypeSchema },
       { name: ItemModel.name, schema: ItemModelSchema },
       { name: Unit.name, schema: UnitSchema },
       { name: AuditLog.name, schema: AuditLogSchema },

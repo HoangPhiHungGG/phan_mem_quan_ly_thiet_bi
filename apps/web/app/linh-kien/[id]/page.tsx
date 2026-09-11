@@ -25,7 +25,7 @@ type PartDetail = {
   stockQty: number;
   minQty: number;
   unitId: Ref;
-  deviceTypeId: Ref;
+  componentTypeId: Ref;
   modelId: Ref;
   supplierId: Ref;
   spec?: string;
@@ -101,12 +101,12 @@ export default function PartDetailPage() {
   useEffect(() => {
     Promise.all([
       loadCatalogOptions("units"),
-      loadCatalogOptions("device-types"),
-      loadCatalogOptions("item-models"),
+      loadCatalogOptions("component-types"),
+      loadCatalogOptions("component-models"),
       loadCatalogOptions("suppliers"),
     ])
-      .then(([units, deviceTypes, models, suppliers]) =>
-        setOpts({ units, deviceTypes, models, suppliers }),
+      .then(([units, componentTypes, models, suppliers]) =>
+        setOpts({ units, componentTypes, models, suppliers }),
       )
       .catch(() => undefined);
   }, []);
@@ -126,7 +126,7 @@ export default function PartDetailPage() {
         body: JSON.stringify({
           name: value("name"),
           unitId: value("unitId"),
-          deviceTypeId: value("deviceTypeId"),
+          componentTypeId: value("componentTypeId"),
           modelId: value("modelId"),
           supplierId: value("supplierId"),
           spec: value("spec"),
@@ -188,8 +188,8 @@ export default function PartDetailPage() {
         : String(part.stockQty),
     ],
     ["Tồn tối thiểu", String(part.minQty)],
-    ["Loại thiết bị", part.deviceTypeId?.name ?? "—"],
-    ["Mã hàng / model", part.modelId?.name ?? "—"],
+    ["Loại linh kiện", part.componentTypeId?.name ?? "—"],
+    ["Model linh kiện", part.modelId?.name ?? "—"],
     ["Nhà cung cấp", part.supplierId?.name ?? "—"],
     ["Thông số", part.spec ?? "—"],
     ["Ghi chú", part.note ?? "—"],
@@ -354,7 +354,7 @@ export default function PartDetailPage() {
             </h3>
             <Input
               name="name"
-              label="Tên"
+              label="Tên linh kiện"
               defaultValue={part.name}
               required
               maxLength={150}
@@ -368,15 +368,16 @@ export default function PartDetailPage() {
               defaultValue={part.unitId?._id ?? ""}
             />
             <Select
-              name="deviceTypeId"
-              label="Loại thiết bị"
-              placeholder="-- Không chọn --"
-              options={opts.deviceTypes ?? []}
-              defaultValue={part.deviceTypeId?._id ?? ""}
+              name="componentTypeId"
+              label="Loại linh kiện"
+              required
+              placeholder="-- Chọn --"
+              options={opts.componentTypes ?? []}
+              defaultValue={part.componentTypeId?._id ?? ""}
             />
             <Select
               name="modelId"
-              label="Mã hàng / model"
+              label="Model linh kiện"
               placeholder="-- Không chọn --"
               options={opts.models ?? []}
               defaultValue={part.modelId?._id ?? ""}

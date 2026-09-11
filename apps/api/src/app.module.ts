@@ -16,6 +16,7 @@ import { LiquidationModule } from "./liquidations/liquidation.module";
 import { InventoryCountModule } from "./inventory-counts/inventory-count.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { ReportModule } from "./reports/report.module";
+import { NotificationModule } from "./notifications/notification.module";
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ReportModule } from "./reports/report.module";
     InventoryCountModule,
     DashboardModule,
     ReportModule,
+    NotificationModule,
     TransactionTestModule,
   ],
 })

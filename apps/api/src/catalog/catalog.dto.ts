@@ -19,7 +19,11 @@ export const CATALOG_TYPES = [
   "positions",
   "suppliers",
   "device-types",
+  "component-types",
+  "device-models",
+  "component-models",
   "units",
+  // Alias cũ, giữ để client cũ không lỗi; backend xem đây là model thiết bị.
   "item-models",
 ] as const;
 
@@ -97,6 +101,11 @@ export class CreateCatalogDto {
   @IsOptional()
   @IsMongoId()
   deviceTypeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsMongoId()
+  componentTypeId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -197,6 +206,11 @@ export class UpdateCatalogDto {
   @IsOptional()
   @IsMongoId()
   deviceTypeId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsMongoId()
+  componentTypeId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

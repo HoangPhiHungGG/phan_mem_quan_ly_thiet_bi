@@ -280,7 +280,7 @@ export class ReportService {
         ...ref("parts", "_id.partId", "part"),
         ...ref("warehouses", "_id.warehouseId", "warehouse"),
         ...ref("units", "part.unitId", "unit"),
-        ...ref("device_types", "part.deviceTypeId", "group"),
+        ...ref("component_types", "part.componentTypeId", "group"),
         {
           $match: {
             "part.isActive": true,

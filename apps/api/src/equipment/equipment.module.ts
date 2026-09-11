@@ -8,6 +8,8 @@ import {
   WarehouseSchema,
 } from "../identity/identity.schemas";
 import {
+  ComponentType,
+  ComponentTypeSchema,
   DeviceType,
   DeviceTypeSchema,
   ItemModel,
@@ -47,6 +49,7 @@ import {
       { name: PartSerial.name, schema: PartSerialSchema },
       { name: ItemModel.name, schema: ItemModelSchema },
       { name: DeviceType.name, schema: DeviceTypeSchema },
+      { name: ComponentType.name, schema: ComponentTypeSchema },
       { name: Supplier.name, schema: SupplierSchema },
       { name: Unit.name, schema: UnitSchema },
       { name: Keeper.name, schema: KeeperSchema },

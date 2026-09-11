@@ -24,13 +24,13 @@ export class InventoryService {
         .find({ warehouseId, quantity: { $gte: 0 } })
         .populate(
           "partId",
-          "code name trackingMode minQty unitId deviceTypeId modelId supplierId isActive",
+          "code name trackingMode minQty unitId componentTypeId modelId supplierId isActive",
         )
         .populate({
           path: "partId",
           populate: [
             { path: "unitId", select: "name" },
-            { path: "deviceTypeId", select: "name" },
+            { path: "componentTypeId", select: "name" },
             { path: "modelId", select: "name" },
             { path: "supplierId", select: "name" },
           ],

@@ -356,7 +356,7 @@ export default function ReportsPage() {
       apiFetch<{ data: Option[] }>("/api/catalog/departments?limit=100"),
       apiFetch<{ data: Option[] }>("/api/catalog/keepers?limit=100"),
       apiFetch<{ data: Option[] }>("/api/catalog/device-types?limit=100"),
-      apiFetch<{ data: Option[] }>("/api/catalog/item-models?limit=100"),
+      apiFetch<{ data: Option[] }>("/api/catalog/device-models?limit=100"),
       apiFetch<{ data: Option[] }>("/api/catalog/suppliers?limit=100"),
     ]).then(([w, d, e, t, m, s]) => {
       if (w.status === "fulfilled") setWarehouses(w.value.data);

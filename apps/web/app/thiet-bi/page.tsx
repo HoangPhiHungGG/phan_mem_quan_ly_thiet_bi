@@ -97,7 +97,7 @@ export default function DeviceListPage() {
   useEffect(() => {
     Promise.all([
       loadCatalogOptions("device-types"),
-      loadCatalogOptions("item-models"),
+      loadCatalogOptions("device-models"),
       loadCatalogOptions("suppliers"),
       loadCatalogOptions("departments"),
       loadCatalogOptions("warehouses"),
@@ -339,8 +339,8 @@ export default function DeviceListPage() {
           />
           <CatalogCombobox
             name="modelId"
-            label="Mã hàng / model"
-            type="item-models"
+            label="Model thiết bị"
+            type="device-models"
             options={(opts.models ?? []).filter(
               (option) =>
                 !createValues.deviceTypeId ||

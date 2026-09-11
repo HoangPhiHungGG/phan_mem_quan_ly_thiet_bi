@@ -30,7 +30,7 @@ const CATALOGS: CatalogDef[] = [
   {
     key: "departments",
     label: "Bộ phận",
-    hasCode: true,
+    hasCode: false,
     fields: [
       { name: "parentId", label: "Bộ phận cha", selectFrom: "departments" },
     ],
@@ -38,7 +38,7 @@ const CATALOGS: CatalogDef[] = [
   {
     key: "warehouses",
     label: "Kho",
-    hasCode: true,
+    hasCode: false,
     fields: [
       { name: "departmentId", label: "Bộ phận", selectFrom: "departments" },
     ],
@@ -46,7 +46,7 @@ const CATALOGS: CatalogDef[] = [
   {
     key: "locations",
     label: "Vị trí",
-    hasCode: true,
+    hasCode: false,
     fields: [
       {
         name: "warehouseId",
@@ -59,7 +59,7 @@ const CATALOGS: CatalogDef[] = [
   {
     key: "keepers",
     label: "Người giữ",
-    hasCode: true,
+    hasCode: false,
     fields: [
       { name: "employeeCode", label: "Mã nhân viên (không bắt buộc)" },
       { name: "departmentId", label: "Bộ phận", selectFrom: "departments" },
@@ -70,19 +70,18 @@ const CATALOGS: CatalogDef[] = [
   {
     key: "suppliers",
     label: "Nhà cung cấp",
-    hasCode: true,
+    hasCode: false,
     fields: [
       { name: "phone", label: "Điện thoại" },
       { name: "email", label: "Email", type: "email" },
       { name: "address", label: "Địa chỉ", textarea: true },
     ],
   },
-  { key: "device-types", label: "Loại thiết bị", hasCode: true, fields: [] },
-  { key: "units", label: "Đơn vị tính", hasCode: true, fields: [] },
+  { key: "device-types", label: "Loại thiết bị", hasCode: false, fields: [] },
   {
-    key: "item-models",
-    label: "Mã hàng / model",
-    hasCode: true,
+    key: "device-models",
+    label: "Model thiết bị",
+    hasCode: false,
     fields: [
       {
         name: "deviceTypeId",
@@ -92,6 +91,28 @@ const CATALOGS: CatalogDef[] = [
       { name: "unitId", label: "Đơn vị tính", selectFrom: "units" },
     ],
   },
+  {
+    key: "component-types",
+    label: "Loại linh kiện",
+    hasCode: false,
+    fields: [],
+  },
+  {
+    key: "component-models",
+    label: "Model linh kiện",
+    hasCode: false,
+    fields: [
+      {
+        name: "componentTypeId",
+        label: "Loại linh kiện",
+        selectFrom: "component-types",
+      },
+      { name: "unitId", label: "Đơn vị tính", selectFrom: "units" },
+      { name: "manufacturer", label: "Hãng" },
+      { name: "description", label: "Mô tả", textarea: true },
+    ],
+  },
+  { key: "units", label: "Đơn vị tính", hasCode: false, fields: [] },
 ];
 
 type Row = Record<string, unknown> & { _id: string; isActive: boolean };
@@ -161,10 +182,8 @@ export default function CatalogPage() {
     setActionError("");
     const form = new FormData(event.currentTarget);
     const body: Record<string, unknown> = { name: form.get("name") };
-    if (def.hasCode) body.code = form.get("code") || undefined;
     for (const field of def.fields)
       body[field.name] = form.get(field.name) || undefined;
-    if (def.hasCode) body.code = form.get("code") || undefined;
     try {
       await apiFetch(`/api/catalog/${type}`, {
         method: "POST",
@@ -182,7 +201,6 @@ export default function CatalogPage() {
     setActionError("");
     const form = new FormData(event.currentTarget);
     const body: Record<string, unknown> = { name: form.get("name") };
-    if (def.hasCode) body.code = form.get("code") || undefined;
     for (const field of def.fields)
       if (field.name !== "code")
         body[field.name] = form.get(field.name) || undefined;
@@ -244,8 +262,8 @@ export default function CatalogPage() {
       <div>
         <h2 className="text-2xl font-bold">Danh mục</h2>
         <p className="text-sm text-muted-foreground">
-          Bộ phận, kho, vị trí, người giữ, nhà cung cấp, loại thiết bị, đơn vị
-          tính và mã hàng/model
+          Danh mục dùng chung, danh mục thiết bị và danh mục linh kiện được quản
+          lý độc lập.
         </p>
       </div>
 
@@ -275,7 +293,7 @@ export default function CatalogPage() {
             setQ(event.target.value);
             setPage(1);
           }}
-          placeholder="Theo mã hoặc tên..."
+          placeholder="Theo tên..."
           className="max-w-xs"
         />
         {canManage && (
@@ -303,14 +321,6 @@ export default function CatalogPage() {
           onSubmit={submitCreate}
           className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2"
         >
-          {def.hasCode && (
-            <Input
-              name="code"
-              label={`Mã ${def.label.toLowerCase()}`}
-              required
-              maxLength={80}
-            />
-          )}
           <Input name="name" label="Tên" required maxLength={150} />
           {def.fields.map((field) =>
             field.selectFrom ? (
@@ -408,15 +418,6 @@ export default function CatalogPage() {
                             )}
                             required
                           />
-                          {def.hasCode && (
-                            <Input
-                              name="code"
-                              label={`Mã ${def.label.toLowerCase()}`}
-                              defaultValue={String(row.code ?? "")}
-                              required
-                              maxLength={80}
-                            />
-                          )}
                           {def.fields.map((field) =>
                             field.selectFrom ? (
                               <Select

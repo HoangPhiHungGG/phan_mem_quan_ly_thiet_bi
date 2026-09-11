@@ -380,6 +380,12 @@ export class Warehouse {
   @Prop({ required: true, trim: true, maxlength: 150 })
   name!: string;
 
+  @Prop({ trim: true, maxlength: 300 })
+  address?: string;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Keeper" })
+  managerKeeperId?: Types.ObjectId;
+
   @Prop({ trim: true, maxlength: 500 })
   description?: string;
 

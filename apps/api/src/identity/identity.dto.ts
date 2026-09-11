@@ -207,9 +207,10 @@ export class CreateDepartmentDto {
 }
 
 export class CreateWarehouseDto {
+  @IsOptional()
   @IsString()
   @Length(1, 50)
-  code!: string;
+  code?: string;
 
   @IsString()
   @Length(1, 150)
@@ -218,4 +219,10 @@ export class CreateWarehouseDto {
   @IsOptional()
   @IsMongoId()
   departmentId?: string;
+
+  @IsOptional() @IsString() @Length(1, 300) address?: string;
+  @IsOptional() @IsString() @Length(1, 500) description?: string;
+  @IsOptional() @IsMongoId() managerKeeperId?: string;
 }
+
+export class UpdateWarehouseDto extends CreateWarehouseDto {}

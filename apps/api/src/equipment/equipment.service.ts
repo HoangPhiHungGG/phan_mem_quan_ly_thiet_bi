@@ -11,6 +11,7 @@ import { AuditService } from "../auth/audit.service";
 import type { CurrentActor } from "../auth/auth.types";
 import { Department, Warehouse } from "../identity/identity.schemas";
 import {
+  ComponentType,
   ItemModel,
   Keeper,
   Location,
@@ -52,7 +53,7 @@ const DEVICE_POPULATE = [
 
 const PART_POPULATE = [
   { path: "unitId", select: "code name" },
-  { path: "deviceTypeId", select: "code name" },
+  { path: "componentTypeId", select: "code name" },
   { path: "modelId", select: "code name" },
   { path: "supplierId", select: "code name" },
 ];
@@ -74,6 +75,8 @@ export class EquipmentService {
     @InjectModel(PartSerial.name) private readonly partSerials: AnyModel,
     @InjectModel(ItemModel.name) private readonly itemModels: AnyModel,
     @InjectModel(DeviceType.name) private readonly deviceTypes: AnyModel,
+    @InjectModel(ComponentType.name)
+    private readonly componentTypes: AnyModel,
     @InjectModel(Supplier.name) private readonly suppliers: AnyModel,
     @InjectModel(Unit.name) private readonly units: AnyModel,
     @InjectModel(Keeper.name) private readonly keepers: AnyModel,
@@ -335,7 +338,8 @@ export class EquipmentService {
   async listParts(query: {
     q?: string;
     trackingMode?: string;
-    deviceTypeId?: string;
+    componentTypeId?: string;
+    modelId?: string;
     isActive?: string;
     page?: string;
     limit?: string;
@@ -349,7 +353,8 @@ export class EquipmentService {
     }
     if (query.trackingMode === "QUANTITY" || query.trackingMode === "SERIAL")
       filter.trackingMode = query.trackingMode;
-    if (query.deviceTypeId) filter.deviceTypeId = query.deviceTypeId;
+    if (query.componentTypeId) filter.componentTypeId = query.componentTypeId;
+    if (query.modelId) filter.modelId = query.modelId;
     if (query.isActive === "true") filter.isActive = true;
     if (query.isActive === "false") filter.isActive = false;
     const [items, total] = await Promise.all([
@@ -396,7 +401,7 @@ export class EquipmentService {
   async createPart(input: CreatePartDto, actor: CurrentActor) {
     await this.validatePartRefs(
       input.unitId,
-      input.deviceTypeId,
+      input.componentTypeId,
       input.modelId,
       input.supplierId,
     );
@@ -420,19 +425,19 @@ export class EquipmentService {
     const incomingTypes = ["OPENING", "PURCHASE", "RETURN", "TRANSFER_IN"];
     if (initial?.type && !incomingTypes.includes(initial.type))
       throw new BadRequestException({ code: "INITIAL_STOCK_TYPE_INVALID" });
-    const serials = (initial?.serials ?? []).map((serial) =>
-      serial.trim().toUpperCase(),
-    );
+    const serials = (initial?.serials ?? [])
+      .map((serial) => serial.trim().toUpperCase())
+      .filter(Boolean);
     if (new Set(serials).size !== serials.length)
       throw new BadRequestException({
         code: "PART_SERIAL_DUPLICATE_IN_INITIAL_STOCK",
       });
-    if (
-      input.trackingMode === "SERIAL" &&
-      hasWarehouse &&
-      serials.length > quantity
-    )
-      throw new BadRequestException({ code: "PART_SERIAL_COUNT_EXCEEDED" });
+    if (input.trackingMode === "SERIAL" && serials.length !== quantity)
+      throw new BadRequestException({ code: "PART_SERIAL_COUNT_MISMATCH" });
+    if (input.trackingMode === "SERIAL" && serials.length && !hasWarehouse)
+      throw new BadRequestException({
+        code: "INITIAL_STOCK_WAREHOUSE_REQUIRED",
+      });
     if (input.trackingMode === "QUANTITY" && serials.length)
       throw new BadRequestException({ code: "PART_SERIAL_NOT_ALLOWED" });
     const session = await this.parts.db.startSession();
@@ -446,7 +451,7 @@ export class EquipmentService {
               name: input.name.trim(),
               trackingMode: input.trackingMode,
               unitId: input.unitId,
-              deviceTypeId: input.deviceTypeId,
+              componentTypeId: input.componentTypeId,
               modelId: input.modelId,
               supplierId: input.supplierId,
               spec: input.spec?.trim(),
@@ -519,15 +524,15 @@ export class EquipmentService {
     if (!part) throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
     await this.validatePartRefs(
       input.unitId ?? part.unitId.toString(),
-      input.deviceTypeId,
-      input.modelId,
+      input.componentTypeId ?? part.componentTypeId?.toString(),
+      input.modelId ?? part.modelId?.toString(),
       input.supplierId,
     );
     const update: Record<string, unknown> = {};
     if (input.name !== undefined) update.name = input.name.trim();
     if (input.unitId !== undefined) update.unitId = input.unitId;
-    if (input.deviceTypeId !== undefined)
-      update.deviceTypeId = input.deviceTypeId;
+    if (input.componentTypeId !== undefined)
+      update.componentTypeId = input.componentTypeId;
     if (input.modelId !== undefined) update.modelId = input.modelId;
     if (input.supplierId !== undefined) update.supplierId = input.supplierId;
     if (input.spec !== undefined) update.spec = input.spec.trim();
@@ -628,11 +633,7 @@ export class EquipmentService {
   private async validateDeviceRefs(
     input: CreateDeviceDto | UpdateDeviceDto,
   ): Promise<void> {
-    await this.assertRef(
-      this.itemModels,
-      input.modelId,
-      "MODEL_REFERENCE_INVALID",
-    );
+    await this.assertModelRef(input.modelId, "DEVICE");
     await this.assertRef(
       this.deviceTypes,
       input.deviceTypeId,
@@ -645,7 +646,7 @@ export class EquipmentService {
     );
     if (input.modelId && input.deviceTypeId) {
       const model = (await this.itemModels
-        .findOne({ _id: input.modelId, isActive: true })
+        .findOne({ _id: input.modelId, isActive: true, entityType: "DEVICE" })
         .select("deviceTypeId")
         .lean()
         .exec()) as { deviceTypeId?: Types.ObjectId } | null;
@@ -660,31 +661,54 @@ export class EquipmentService {
 
   private async validatePartRefs(
     unitId: string,
-    deviceTypeId?: string,
+    componentTypeId?: string,
     modelId?: string,
     supplierId?: string,
   ): Promise<void> {
     await this.assertRef(this.units, unitId, "UNIT_REFERENCE_INVALID");
     await this.assertRef(
-      this.deviceTypes,
-      deviceTypeId,
-      "DEVICE_TYPE_REFERENCE_INVALID",
+      this.componentTypes,
+      componentTypeId,
+      "COMPONENT_TYPE_REFERENCE_INVALID",
     );
-    await this.assertRef(this.itemModels, modelId, "MODEL_REFERENCE_INVALID");
+    await this.assertModelRef(modelId, "COMPONENT");
     await this.assertRef(
       this.suppliers,
       supplierId,
       "SUPPLIER_REFERENCE_INVALID",
     );
-    if (modelId && deviceTypeId) {
+    if (modelId && componentTypeId) {
       const model = (await this.itemModels
-        .findOne({ _id: modelId, isActive: true })
-        .select("deviceTypeId")
+        .findOne({ _id: modelId, isActive: true, entityType: "COMPONENT" })
+        .select("componentTypeId")
         .lean()
-        .exec()) as { deviceTypeId?: Types.ObjectId } | null;
-      if (model?.deviceTypeId && String(model.deviceTypeId) !== deviceTypeId) {
-        throw new BadRequestException({ code: "MODEL_DEVICE_TYPE_MISMATCH" });
+        .exec()) as { componentTypeId?: Types.ObjectId } | null;
+      if (
+        model?.componentTypeId &&
+        String(model.componentTypeId) !== componentTypeId
+      ) {
+        throw new BadRequestException({
+          code: "MODEL_COMPONENT_TYPE_MISMATCH",
+        });
       }
+    }
+  }
+
+  private async assertModelRef(
+    id: string | undefined,
+    entityType: "DEVICE" | "COMPONENT",
+  ): Promise<void> {
+    if (!id) return;
+    if (
+      !Types.ObjectId.isValid(id) ||
+      !(await this.itemModels.exists({ _id: id, isActive: true, entityType }))
+    ) {
+      throw new BadRequestException({
+        code:
+          entityType === "DEVICE"
+            ? "DEVICE_MODEL_REFERENCE_INVALID"
+            : "COMPONENT_MODEL_REFERENCE_INVALID",
+      });
     }
   }
 }

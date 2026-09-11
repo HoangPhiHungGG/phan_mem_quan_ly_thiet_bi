@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
+import type { OnModuleInit } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Types } from "mongoose";
 import type { Model } from "mongoose";
@@ -19,6 +21,7 @@ import { Device, Part, PartSerial } from "../equipment/equipment.schemas";
 import { OperationDocument } from "../operations/operation.schemas";
 import {
   DeviceType,
+  ComponentType,
   ItemModel,
   Keeper,
   Location,
@@ -45,15 +48,19 @@ type CatalogEntry = {
   nameField: string;
   populates: { path: string; select: string }[];
   references: ReferenceCheck[];
+  modelEntityType?: "DEVICE" | "COMPONENT";
 };
 
 @Injectable()
-export class CatalogService {
+export class CatalogService implements OnModuleInit {
+  private readonly logger = new Logger(CatalogService.name);
   constructor(
     @InjectModel(Keeper.name) private readonly keepers: AnyModel,
     @InjectModel(Position.name) private readonly positions: AnyModel,
     @InjectModel(Supplier.name) private readonly suppliers: AnyModel,
     @InjectModel(DeviceType.name) private readonly deviceTypes: AnyModel,
+    @InjectModel(ComponentType.name)
+    private readonly componentTypes: AnyModel,
     @InjectModel(Unit.name) private readonly units: AnyModel,
     @InjectModel(ItemModel.name) private readonly itemModels: AnyModel,
     @InjectModel(Location.name) private readonly locations: AnyModel,
@@ -94,7 +101,10 @@ export class CatalogService {
       codeRequired: true,
       searchFields: ["code", "name"],
       nameField: "name",
-      populates: [{ path: "departmentId", select: "code name" }],
+      populates: [
+        { path: "departmentId", select: "code name" },
+        { path: "managerKeeperId", select: "displayName employeeCode" },
+      ],
       references: [
         { model: this.locations, path: "warehouseId", label: "vị trí" },
         { model: this.devices, path: "warehouseId", label: "thiết bị" },
@@ -125,12 +135,7 @@ export class CatalogService {
       label: "Người giữ",
       model: this.keepers,
       codeRequired: false,
-      searchFields: [
-        "code",
-        "displayName",
-        "employeeCode",
-        "email",
-      ],
+      searchFields: ["code", "displayName", "employeeCode", "email"],
       nameField: "displayName",
       populates: [
         { path: "departmentId", select: "code name" },
@@ -187,8 +192,23 @@ export class CatalogService {
       populates: [],
       references: [
         { model: this.devices, path: "deviceTypeId", label: "thiết bị" },
-        { model: this.parts, path: "deviceTypeId", label: "linh kiện" },
         { model: this.itemModels, path: "deviceTypeId", label: "mã hàng" },
+      ],
+    },
+    "component-types": {
+      label: "Loại linh kiện",
+      model: this.componentTypes,
+      codeRequired: true,
+      searchFields: ["code", "name"],
+      nameField: "name",
+      populates: [],
+      references: [
+        { model: this.parts, path: "componentTypeId", label: "linh kiện" },
+        {
+          model: this.itemModels,
+          path: "componentTypeId",
+          label: "model linh kiện",
+        },
       ],
     },
     units: {
@@ -204,8 +224,9 @@ export class CatalogService {
       ],
     },
     "item-models": {
-      label: "Mã hàng / model",
+      label: "Model thiết bị",
       model: this.itemModels,
+      modelEntityType: "DEVICE",
       codeRequired: true,
       searchFields: ["code", "name"],
       nameField: "name",
@@ -213,10 +234,33 @@ export class CatalogService {
         { path: "deviceTypeId", select: "code name" },
         { path: "unitId", select: "code name" },
       ],
-      references: [
-        { model: this.devices, path: "modelId", label: "thiết bị" },
-        { model: this.parts, path: "modelId", label: "linh kiện" },
+      references: [{ model: this.devices, path: "modelId", label: "thiết bị" }],
+    },
+    "device-models": {
+      label: "Model thiết bị",
+      model: this.itemModels,
+      modelEntityType: "DEVICE",
+      codeRequired: true,
+      searchFields: ["code", "name"],
+      nameField: "name",
+      populates: [
+        { path: "deviceTypeId", select: "code name" },
+        { path: "unitId", select: "code name" },
       ],
+      references: [{ model: this.devices, path: "modelId", label: "thiết bị" }],
+    },
+    "component-models": {
+      label: "Model linh kiện",
+      model: this.itemModels,
+      modelEntityType: "COMPONENT",
+      codeRequired: true,
+      searchFields: ["code", "name"],
+      nameField: "name",
+      populates: [
+        { path: "componentTypeId", select: "code name" },
+        { path: "unitId", select: "code name" },
+      ],
+      references: [{ model: this.parts, path: "modelId", label: "linh kiện" }],
     },
   };
 
@@ -253,12 +297,51 @@ export class CatalogService {
     );
   }
 
+  /**
+   * Migration an toàn cho `item_models` cũ: chỉ gán scope khi bản ghi được
+   * tham chiếu độc quyền bởi một loại tài sản. Bản ghi dùng chung hoặc chưa có
+   * quan hệ được giữ nguyên để quản trị viên phân loại thủ công, không đoán.
+   */
+  async onModuleInit(): Promise<void> {
+    const legacy = await this.itemModels
+      .find({ entityType: { $exists: false } })
+      .select("_id code")
+      .lean()
+      .exec();
+    for (const model of legacy) {
+      const [usedByDevice, usedByPart] = await Promise.all([
+        this.devices.exists({ modelId: model._id }),
+        this.parts.exists({ modelId: model._id }),
+      ]);
+      if (usedByDevice && !usedByPart) {
+        await this.itemModels.updateOne(
+          { _id: model._id, entityType: { $exists: false } },
+          { $set: { entityType: "DEVICE" } },
+        );
+      } else if (usedByPart && !usedByDevice) {
+        await this.itemModels.updateOne(
+          { _id: model._id, entityType: { $exists: false } },
+          { $set: { entityType: "COMPONENT" } },
+        );
+      } else if (usedByDevice && usedByPart) {
+        this.logger.warn(
+          `Model ${String(model.code)} đang được cả thiết bị và linh kiện sử dụng; giữ nguyên để phân loại thủ công.`,
+        );
+      }
+    }
+  }
+
+  private scopedFilter(entry: CatalogEntry): Record<string, unknown> {
+    return entry.modelEntityType ? { entityType: entry.modelEntityType } : {};
+  }
+
   async list(
     type: string,
     query: {
       q?: string;
       isActive?: string;
       deviceTypeId?: string;
+      componentTypeId?: string;
       departmentId?: string;
       positionId?: string;
       status?: string;
@@ -270,10 +353,13 @@ export class CatalogService {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const filter: Record<string, unknown> = {};
+    Object.assign(filter, this.scopedFilter(entry));
     if (query.isActive === "true") filter.isActive = true;
     if (query.isActive === "false") filter.isActive = false;
-    if (type === "item-models" && query.deviceTypeId)
+    if (["item-models", "device-models"].includes(type) && query.deviceTypeId)
       filter.deviceTypeId = query.deviceTypeId;
+    if (type === "component-models" && query.componentTypeId)
+      filter.componentTypeId = query.componentTypeId;
     if (type === "keepers" && query.departmentId)
       filter.departmentId = query.departmentId;
     if (type === "keepers" && query.positionId)
@@ -305,7 +391,7 @@ export class CatalogService {
     if (!Types.ObjectId.isValid(id))
       throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
     const item = await entry.model
-      .findById(id)
+      .findOne({ _id: id, ...this.scopedFilter(entry) })
       .populate(entry.populates as any)
       .lean()
       .exec();
@@ -317,9 +403,11 @@ export class CatalogService {
     const entry = this.entry(type);
     const name = input.name.trim();
     const doc: Record<string, unknown> = { isActive: true };
+    if (entry.modelEntityType) doc.entityType = entry.modelEntityType;
     const nameField = type === "keepers" ? "displayName" : "name";
     if (
       await entry.model.exists({
+        ...this.scopedFilter(entry),
         [nameField]: new RegExp(`^${this.escapeRegex(name)}$`, "i"),
       })
     ) {
@@ -356,7 +444,9 @@ export class CatalogService {
     if (input.description?.trim()) doc.description = input.description.trim();
     if (input.code?.trim()) doc.code = input.code.trim().toUpperCase();
     else if (entry.codeRequired)
-      throw new BadRequestException({ code: "CATALOG_CODE_REQUIRED" });
+      // Giữ code làm khóa kỹ thuật để tương thích dữ liệu/index cũ, nhưng người
+      // dùng không phải nhập mã cho danh mục phụ.
+      doc.code = `AUTO-${new Types.ObjectId().toHexString().toUpperCase()}`;
 
     switch (type) {
       case "locations": {
@@ -372,7 +462,8 @@ export class CatalogService {
         doc.warehouseId = input.warehouseId;
         break;
       }
-      case "item-models": {
+      case "item-models":
+      case "device-models": {
         if (input.deviceTypeId) {
           await this.assertRef(
             this.deviceTypes,
@@ -380,6 +471,27 @@ export class CatalogService {
             "DEVICE_TYPE_REFERENCE_INVALID",
           );
           doc.deviceTypeId = input.deviceTypeId;
+        }
+        if (input.unitId) {
+          await this.assertRef(
+            this.units,
+            input.unitId,
+            "UNIT_REFERENCE_INVALID",
+          );
+          doc.unitId = input.unitId;
+        }
+        if (input.manufacturer?.trim())
+          doc.manufacturer = input.manufacturer.trim();
+        break;
+      }
+      case "component-models": {
+        if (input.componentTypeId) {
+          await this.assertRef(
+            this.componentTypes,
+            input.componentTypeId,
+            "COMPONENT_TYPE_REFERENCE_INVALID",
+          );
+          doc.componentTypeId = input.componentTypeId;
         }
         if (input.unitId) {
           await this.assertRef(
@@ -421,6 +533,15 @@ export class CatalogService {
           );
           doc.departmentId = input.departmentId;
         }
+        if (input.managerKeeperId) {
+          await this.assertRef(
+            this.keepers,
+            input.managerKeeperId,
+            "KEEPER_REFERENCE_INVALID",
+          );
+          doc.managerKeeperId = input.managerKeeperId;
+        }
+        if (input.address?.trim()) doc.address = input.address.trim();
         break;
       }
       case "suppliers": {
@@ -457,11 +578,7 @@ export class CatalogService {
     if (!Types.ObjectId.isValid(id))
       throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
     const update: Record<string, unknown> = {};
-    if (input.code !== undefined) {
-      if (!input.code.trim() && entry.codeRequired)
-        throw new BadRequestException({ code: "CATALOG_CODE_REQUIRED" });
-      update.code = input.code.trim().toUpperCase() || undefined;
-    }
+    if (input.code?.trim()) update.code = input.code.trim().toUpperCase();
     if (input.description !== undefined)
       update.description = input.description.trim();
     if (input.name !== undefined) {
@@ -469,6 +586,7 @@ export class CatalogService {
       if (
         await entry.model.exists({
           _id: { $ne: id },
+          ...this.scopedFilter(entry),
           [nameField]: new RegExp(
             `^${this.escapeRegex(input.name.trim())}$`,
             "i",
@@ -486,7 +604,8 @@ export class CatalogService {
     }
     if (type === "keepers") {
       if (input.employeeCode !== undefined)
-        update.employeeCode = input.employeeCode.trim().toUpperCase() || undefined;
+        update.employeeCode =
+          input.employeeCode.trim().toUpperCase() || undefined;
       if (input.email !== undefined)
         update.email = input.email.trim().toLowerCase() || undefined;
       if (input.joinedAt !== undefined)
@@ -530,7 +649,8 @@ export class CatalogService {
         }
         break;
       }
-      case "item-models": {
+      case "item-models":
+      case "device-models": {
         if (input.deviceTypeId) {
           await this.assertRef(
             this.deviceTypes,
@@ -538,6 +658,27 @@ export class CatalogService {
             "DEVICE_TYPE_REFERENCE_INVALID",
           );
           update.deviceTypeId = input.deviceTypeId;
+        }
+        if (input.unitId) {
+          await this.assertRef(
+            this.units,
+            input.unitId,
+            "UNIT_REFERENCE_INVALID",
+          );
+          update.unitId = input.unitId;
+        }
+        if (input.manufacturer !== undefined)
+          update.manufacturer = input.manufacturer.trim();
+        break;
+      }
+      case "component-models": {
+        if (input.componentTypeId) {
+          await this.assertRef(
+            this.componentTypes,
+            input.componentTypeId,
+            "COMPONENT_TYPE_REFERENCE_INVALID",
+          );
+          update.componentTypeId = input.componentTypeId;
         }
         if (input.unitId) {
           await this.assertRef(
@@ -575,19 +716,34 @@ export class CatalogService {
         break;
       }
       case "warehouses": {
-        if (input.departmentId) {
-          await this.assertRef(
-            this.departments,
-            input.departmentId,
-            "DEPARTMENT_REFERENCE_INVALID",
-          );
-          update.departmentId = input.departmentId;
+        if (input.departmentId !== undefined) {
+          if (input.departmentId)
+            await this.assertRef(
+              this.departments,
+              input.departmentId,
+              "DEPARTMENT_REFERENCE_INVALID",
+            );
+          update.departmentId = input.departmentId || undefined;
         }
+        if (input.managerKeeperId !== undefined) {
+          if (input.managerKeeperId)
+            await this.assertRef(
+              this.keepers,
+              input.managerKeeperId,
+              "KEEPER_REFERENCE_INVALID",
+            );
+          update.managerKeeperId = input.managerKeeperId || undefined;
+        }
+        if (input.address !== undefined) update.address = input.address.trim();
         break;
       }
     }
     const item: any = await entry.model
-      .findByIdAndUpdate(id, { $set: update }, { new: true })
+      .findOneAndUpdate(
+        { _id: id, ...this.scopedFilter(entry) },
+        { $set: update },
+        { new: true },
+      )
       .populate(entry.populates as any)
       .lean()
       .exec();
@@ -612,7 +768,11 @@ export class CatalogService {
     if (!Types.ObjectId.isValid(id))
       throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
     const item: any = await entry.model
-      .findByIdAndUpdate(id, { $set: { isActive } }, { new: true })
+      .findOneAndUpdate(
+        { _id: id, ...this.scopedFilter(entry) },
+        { $set: { isActive } },
+        { new: true },
+      )
       .lean()
       .exec();
     if (!item) throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
@@ -630,6 +790,31 @@ export class CatalogService {
     const entry = this.entry(type);
     if (!Types.ObjectId.isValid(id))
       throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
+    if (type === "warehouses") {
+      const warehouseId = new Types.ObjectId(id);
+      const database = this.warehouses.db;
+      const counts = await Promise.all([
+        database
+          .collection("inventory_balances")
+          .countDocuments({ warehouseId }),
+        database
+          .collection("inventory_transactions")
+          .countDocuments({ warehouseId }),
+        database.collection("inbound_receipts").countDocuments({ warehouseId }),
+        database.collection("operations").countDocuments({
+          $or: [
+            { sourceWarehouseId: warehouseId },
+            { destinationWarehouseId: warehouseId },
+          ],
+        }),
+      ]);
+      if (counts.some((count) => count > 0))
+        throw new ConflictException({
+          code: "CATALOG_IN_USE",
+          message:
+            "Kho đã phát sinh dữ liệu và không thể xóa. Hãy chuyển tài sản sang kho khác và ngừng hoạt động kho.",
+        });
+    }
     for (const reference of entry.references) {
       const count = await reference.model
         .countDocuments({ [reference.path]: id })
@@ -641,7 +826,9 @@ export class CatalogService {
         });
       }
     }
-    const result = await entry.model.deleteOne({ _id: id }).exec();
+    const result = await entry.model
+      .deleteOne({ _id: id, ...this.scopedFilter(entry) })
+      .exec();
     if (result.deletedCount === 0)
       throw new NotFoundException({ code: "RESOURCE_NOT_FOUND" });
     await this.audit.write({

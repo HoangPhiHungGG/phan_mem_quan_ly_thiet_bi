@@ -174,10 +174,9 @@ export class CreatePartDto {
   @IsMongoId()
   unitId!: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsMongoId()
-  deviceTypeId?: string;
+  componentTypeId!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -230,7 +229,7 @@ export class UpdatePartDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsMongoId()
-  deviceTypeId?: string;
+  componentTypeId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

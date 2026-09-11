@@ -37,6 +37,8 @@ export class PurchaseItem {
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "DeviceType" })
   deviceTypeId?: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "ComponentType" })
+  componentTypeId?: Types.ObjectId;
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Part" })
   partId?: Types.ObjectId;
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "ItemModel" })

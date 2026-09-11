@@ -13,8 +13,11 @@ type CatalogType =
   | "keepers"
   | "suppliers"
   | "device-types"
+  | "component-types"
   | "units"
-  | "item-models";
+  | "item-models"
+  | "device-models"
+  | "component-models";
 
 const LABELS: Record<CatalogType, string> = {
   departments: "bộ phận",
@@ -23,11 +26,12 @@ const LABELS: Record<CatalogType, string> = {
   keepers: "người giữ",
   suppliers: "nhà cung cấp",
   "device-types": "loại thiết bị",
+  "component-types": "loại linh kiện",
   units: "đơn vị tính",
   "item-models": "mã hàng / model",
+  "device-models": "model thiết bị",
+  "component-models": "model linh kiện",
 };
-
-const CODE_OPTIONAL = new Set<CatalogType>(["keepers"]);
 
 export function CatalogCombobox({
   name,
@@ -56,6 +60,7 @@ export function CatalogCombobox({
   onCreated(option: CatalogOption): void;
   context?: {
     deviceTypeId?: string;
+    componentTypeId?: string;
     warehouseId?: string;
     departmentId?: string;
   };
@@ -67,7 +72,6 @@ export function CatalogCombobox({
   const [error, setError] = useState("");
   const [draft, setDraft] = useState({
     name: "",
-    code: "",
     description: "",
     phone: "",
     manufacturer: "",
@@ -88,11 +92,14 @@ export function CatalogCombobox({
       draft[field].trim() || undefined;
     const body: Record<string, string | undefined> = {
       name: text("name"),
-      code: text("code"),
       description: text("description"),
     };
-    if (type === "item-models") body.manufacturer = text("manufacturer");
-    if (type === "item-models") body.deviceTypeId = context.deviceTypeId;
+    if (["item-models", "device-models", "component-models"].includes(type))
+      body.manufacturer = text("manufacturer");
+    if (["item-models", "device-models"].includes(type))
+      body.deviceTypeId = context.deviceTypeId;
+    if (type === "component-models")
+      body.componentTypeId = context.componentTypeId;
     if (type === "locations") body.warehouseId = context.warehouseId;
     if (type === "warehouses") body.departmentId = context.departmentId;
     if (type === "keepers") body.departmentId = context.departmentId;
@@ -109,14 +116,17 @@ export function CatalogCombobox({
         label:
           String(item.displayName ?? item.name ?? "") +
           (item.code ? ` (${String(item.code)})` : ""),
-        deviceTypeId: type === "item-models" ? context.deviceTypeId : undefined,
+        deviceTypeId: ["item-models", "device-models"].includes(type)
+          ? context.deviceTypeId
+          : undefined,
+        componentTypeId:
+          type === "component-models" ? context.componentTypeId : undefined,
         warehouseId: type === "locations" ? context.warehouseId : undefined,
       };
       onCreated(option);
       onValueChange(option.value);
       setDraft({
         name: "",
-        code: "",
         description: "",
         phone: "",
         manufacturer: "",
@@ -134,7 +144,8 @@ export function CatalogCombobox({
   }
 
   const needsParent =
-    (type === "item-models" && !context.deviceTypeId) ||
+    (["item-models", "device-models"].includes(type) &&
+      !context.deviceTypeId) ||
     (type === "locations" && !context.warehouseId);
   return (
     <div className="relative text-sm font-medium">
@@ -226,8 +237,8 @@ export function CatalogCombobox({
             </div>
             {needsParent && (
               <p className="mb-3 rounded bg-amber-50 p-2 text-xs text-amber-800">
-                Hãy chọn {type === "item-models" ? "loại thiết bị" : "kho"}{" "}
-                trước khi thêm.
+                Hãy chọn {type === "locations" ? "kho" : "loại thiết bị"} trước
+                khi thêm.
               </p>
             )}
             <div className="space-y-3">
@@ -241,21 +252,6 @@ export function CatalogCombobox({
                     setDraft((current) => ({
                       ...current,
                       name: event.target.value,
-                    }))
-                  }
-                  className="mt-1 w-full rounded border px-3 py-2"
-                />
-              </label>
-              <label className="block">
-                Mã {CODE_OPTIONAL.has(type) ? "(không bắt buộc)" : "*"}
-                <input
-                  name="code"
-                  required={!CODE_OPTIONAL.has(type)}
-                  value={draft.code}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      code: event.target.value,
                     }))
                   }
                   className="mt-1 w-full rounded border px-3 py-2"
@@ -277,7 +273,9 @@ export function CatalogCombobox({
                   />
                 </label>
               )}
-              {type === "item-models" && (
+              {["item-models", "device-models", "component-models"].includes(
+                type,
+              ) && (
                 <label className="block">
                   Hãng sản xuất
                   <input
@@ -324,12 +322,7 @@ export function CatalogCombobox({
               <Button
                 type="button"
                 onClick={() => void create()}
-                disabled={
-                  creating ||
-                  needsParent ||
-                  !draft.name.trim() ||
-                  (!CODE_OPTIONAL.has(type) && !draft.code.trim())
-                }
+                disabled={creating || needsParent || !draft.name.trim()}
               >
                 {creating && <Loader2 className="animate-spin" />}Thêm
               </Button>

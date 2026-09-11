@@ -36,6 +36,7 @@ export class CatalogController {
       q?: string;
       isActive?: string;
       deviceTypeId?: string;
+      componentTypeId?: string;
       departmentId?: string;
       positionId?: string;
       status?: string;

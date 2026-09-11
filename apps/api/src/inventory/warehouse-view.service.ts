@@ -57,7 +57,10 @@ export class WarehouseViewService {
     return new Types.ObjectId(id);
   }
   private async warehouse(id: string) {
-    const item = await this.warehouses.findById(this.objectId(id)).lean();
+    const item = await this.warehouses
+      .findById(this.objectId(id))
+      .populate("managerKeeperId", "displayName employeeCode")
+      .lean();
     if (!item) throw new NotFoundException({ code: "WAREHOUSE_NOT_FOUND" });
     return item;
   }
@@ -137,7 +140,14 @@ export class WarehouseViewService {
         inUse: number;
         lent: number;
       }>([
-        { $match: { warehouseId: warehouse._id, isActive: true } },
+        {
+          $match: {
+            warehouseId: warehouse._id,
+            isActive: true,
+            usageStatus: "IN_STOCK",
+            keeperId: null,
+          },
+        },
         {
           $group: {
             _id: null,
@@ -168,6 +178,7 @@ export class WarehouseViewService {
       ]),
       this.balances.aggregate<{
         types: number;
+        quantity: number;
         low: number;
         out: number;
         missingParts: number;
@@ -182,6 +193,15 @@ export class WarehouseViewService {
                 $cond: [
                   { $ne: [{ $ifNull: ["$part._id", null] }, null] },
                   1,
+                  0,
+                ],
+              },
+            },
+            quantity: {
+              $sum: {
+                $cond: [
+                  { $ne: [{ $ifNull: ["$part._id", null] }, null] },
+                  "$quantity",
                   0,
                 ],
               },
@@ -219,6 +239,7 @@ export class WarehouseViewService {
         },
         parts: partCounts[0] ?? {
           types: 0,
+          quantity: 0,
           low: 0,
           out: 0,
           missingParts: 0,
@@ -232,6 +253,8 @@ export class WarehouseViewService {
     const filter: Record<string, unknown> = {
       warehouseId: warehouse._id,
       isActive: true,
+      usageStatus: "IN_STOCK",
+      keeperId: null,
     };
     if (query.status === "AVAILABLE")
       Object.assign(filter, {
@@ -239,7 +262,9 @@ export class WarehouseViewService {
         techCondition: { $ne: "BROKEN" },
         keeperId: null,
       });
-    else if (query.status) filter.usageStatus = query.status;
+    else if (query.status && query.status !== "IN_STOCK")
+      filter.usageStatus = "__NO_PHYSICAL_MATCH__";
+    if (query.techCondition) filter.techCondition = query.techCondition;
     if (query.deviceTypeId)
       filter.deviceTypeId = this.objectId(query.deviceTypeId);
     const pipeline: PipelineStage[] = [
@@ -298,16 +323,37 @@ export class WarehouseViewService {
     const warehouse = await this.warehouse(id);
     const pipeline = this.partBase(warehouse._id);
     if (query.status) pipeline.push({ $match: { stockStatus: query.status } });
+    if (query.componentTypeId)
+      pipeline.push({
+        $match: {
+          "part.componentTypeId": this.objectId(query.componentTypeId),
+        },
+      });
+    pipeline.push(lookup("item_models", "part.modelId", "model"), {
+      $set: { model: one("model") },
+    });
     if (query.q?.trim()) {
       const match = regex(query.q);
       pipeline.push({
-        $match: { $or: [{ "part.code": match }, { "part.name": match }] },
+        $match: {
+          $or: [
+            { "part.code": match },
+            { "part.name": match },
+            { "model.name": match },
+            { "model.manufacturer": match },
+          ],
+        },
       });
     }
     pipeline.push(
       lookup("units", "part.unitId", "unit"),
-      lookup("device_types", "part.deviceTypeId", "deviceType"),
-      { $set: { unit: one("unit"), deviceType: one("deviceType") } },
+      lookup("component_types", "part.componentTypeId", "componentType"),
+      {
+        $set: {
+          unit: one("unit"),
+          componentType: one("componentType"),
+        },
+      },
       {
         $project: {
           partId: 1,
@@ -319,7 +365,9 @@ export class WarehouseViewService {
           "part.isActive": 1,
           "unit.name": 1,
           "unit.code": 1,
-          "deviceType.name": 1,
+          "componentType.name": 1,
+          "model.name": 1,
+          "model.manufacturer": 1,
         },
       },
     );

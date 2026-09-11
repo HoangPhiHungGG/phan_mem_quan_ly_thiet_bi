@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Circle, LogOut, Menu, UserCircle } from "lucide-react";
+import { Circle, LogOut, Menu, UserCircle } from "lucide-react";
+import { NotificationBell } from "./notification-bell";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -91,13 +92,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           {apiStatus === "loading" && "Đang kiểm tra API..."}
         </div>
 
-        <button
-          type="button"
-          className="relative rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Thông báo"
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        <NotificationBell />
         <div className="relative">
           <button
             type="button"

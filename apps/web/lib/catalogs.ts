@@ -4,6 +4,7 @@ export type CatalogOption = {
   value: string;
   label: string;
   deviceTypeId?: string;
+  componentTypeId?: string;
   warehouseId?: string;
   departmentId?: string;
 };
@@ -13,6 +14,7 @@ export async function loadCatalogOptions(
   type: string,
   filters: {
     deviceTypeId?: string;
+    componentTypeId?: string;
     warehouseId?: string;
     departmentId?: string;
     positionId?: string;
@@ -21,6 +23,8 @@ export async function loadCatalogOptions(
 ): Promise<CatalogOption[]> {
   const params = new URLSearchParams({ isActive: "true", limit: "100" });
   if (filters.deviceTypeId) params.set("deviceTypeId", filters.deviceTypeId);
+  if (filters.componentTypeId)
+    params.set("componentTypeId", filters.componentTypeId);
   if (filters.warehouseId) params.set("warehouseId", filters.warehouseId);
   if (filters.departmentId) params.set("departmentId", filters.departmentId);
   if (filters.positionId) params.set("positionId", filters.positionId);
@@ -39,6 +43,12 @@ export async function loadCatalogOptions(
         ? String((item.deviceTypeId as { _id?: unknown })._id ?? "")
         : item.deviceTypeId
           ? String(item.deviceTypeId)
+          : undefined,
+    componentTypeId:
+      item.componentTypeId && typeof item.componentTypeId === "object"
+        ? String((item.componentTypeId as { _id?: unknown })._id ?? "")
+        : item.componentTypeId
+          ? String(item.componentTypeId)
           : undefined,
     warehouseId:
       item.warehouseId && typeof item.warehouseId === "object"

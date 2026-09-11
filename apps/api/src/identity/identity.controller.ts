@@ -24,6 +24,7 @@ import {
   UpdateRoleDto,
   UpdateUserDto,
   UpdateUserStatusDto,
+  UpdateWarehouseDto,
 } from "./identity.dto";
 import { IdentityService } from "./identity.service";
 
@@ -236,5 +237,11 @@ export class IdentityController {
   @ApiOperation({ summary: "Tạo kho" })
   createWarehouse(@Body() input: CreateWarehouseDto) {
     return this.identity.createWarehouse(input);
+  }
+
+  @Patch("warehouses/:id")
+  @RequirePermissions("warehouses.manage")
+  updateWarehouse(@Param("id") id: string, @Body() input: UpdateWarehouseDto) {
+    return this.identity.updateWarehouse(id, input);
   }
 }

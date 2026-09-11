@@ -22,6 +22,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { TransactionDetailButton } from "@/components/operations/transaction-detail-button";
 import { Input, Select } from "@/components/ui/input";
 import { apiFetch } from "@/lib/api";
+import { useWarehouseSelection } from "@/components/inventory/warehouse-selection";
 import {
   DEVICE_TYPE_LABELS,
   USAGE_STATUS_LABELS,
@@ -41,6 +42,8 @@ type Warehouse = {
   code: string;
   name: string;
   description?: string;
+  address?: string;
+  managerKeeperId?: Ref;
   isActive: boolean;
 };
 type Summary = {
@@ -49,6 +52,7 @@ type Summary = {
   devices: { total: number; available: number; inUse: number; lent: number };
   parts: {
     types: number;
+    quantity: number;
     low: number;
     out: number;
     missingParts: number;
@@ -74,7 +78,8 @@ type Part = {
   stockStatus: string;
   part?: { code?: string; name?: string; minQty?: number; isActive?: boolean };
   unit?: Ref;
-  deviceType?: Ref;
+  componentType?: Ref;
+  model?: Ref;
 };
 type Transaction = {
   _id: string;
@@ -310,12 +315,16 @@ function usePage<T>(url: string | null, version: number) {
 }
 
 export default function WarehouseDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const warehouseId = useWarehouseSelection();
+  const embedded = Boolean(warehouseId);
+  const id = warehouseId ?? params.id;
   const { hasPermission } = useAuth();
   const canDevices = hasPermission("devices.read"),
     canParts = hasPermission("parts.read"),
-    canCatalog = hasPermission("catalog.read");
-  const canSummary = canDevices && canParts && canCatalog;
+    canCatalog = hasPermission("catalog.read"),
+    canWarehouse = hasPermission("warehouses.read");
+  const canSummary = canDevices && canParts && canWarehouse;
   const canHistory =
     canDevices &&
     canParts &&
@@ -326,7 +335,11 @@ export default function WarehouseDetailPage() {
   const [error, setError] = useState("");
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [version, setVersion] = useState(0);
+  const [activeTab, setActiveTab] = useState<"devices" | "parts" | "history">(
+    "devices",
+  );
   const [types, setTypes] = useState<CatalogOption[]>([]);
+  const [componentTypes, setComponentTypes] = useState<CatalogOption[]>([]);
   const [deviceFilters, setDeviceFilters] = useState({
     q: "",
     status: "",
@@ -336,6 +349,7 @@ export default function WarehouseDetailPage() {
   const [partFilters, setPartFilters] = useState({
     q: "",
     status: "",
+    componentTypeId: "",
     page: 1,
   });
   const [historyFilters, setHistoryFilters] = useState({
@@ -361,7 +375,7 @@ export default function WarehouseDetailPage() {
   );
   const parts = usePage<Part>(
     canParts
-      ? `${base}/parts?${new URLSearchParams({ q: partFilters.q, status: partFilters.status, page: String(partFilters.page), limit: "20" })}`
+      ? `${base}/parts?${new URLSearchParams({ q: partFilters.q, status: partFilters.status, componentTypeId: partFilters.componentTypeId, page: String(partFilters.page), limit: "20" })}`
       : null,
     version,
   );
@@ -377,7 +391,7 @@ export default function WarehouseDetailPage() {
     setLoadingSummary(true);
     setSummary(null);
     setWarehouse(null);
-    if (!canCatalog) {
+    if (!canWarehouse) {
       setLoadingSummary(false);
       return;
     }
@@ -389,11 +403,10 @@ export default function WarehouseDetailPage() {
               setWarehouse(result.data.warehouse);
             }
           })
-        : apiFetch<{ data: Warehouse }>(`/api/catalog/warehouses/${id}`).then(
-            (result) => {
-              if (!cancelled) setWarehouse(result.data);
-            },
-          )
+        : apiFetch<{ data: Warehouse[] }>("/api/warehouses").then((result) => {
+            if (!cancelled)
+              setWarehouse(result.data.find((item) => item._id === id) ?? null);
+          })
     )
       .catch((e) => {
         if (!cancelled)
@@ -407,11 +420,17 @@ export default function WarehouseDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [base, id, version, canSummary, canCatalog]);
+  }, [base, id, version, canSummary, canWarehouse]);
   useEffect(() => {
     if (canCatalog)
-      void loadCatalogOptions("device-types")
-        .then(setTypes)
+      void Promise.all([
+        loadCatalogOptions("device-types"),
+        loadCatalogOptions("component-types"),
+      ])
+        .then(([deviceTypes, partTypes]) => {
+          setTypes(deviceTypes);
+          setComponentTypes(partTypes);
+        })
         .catch((e) =>
           setError(
             e instanceof Error ? e.message : "Không thể tải loại thiết bị.",
@@ -420,7 +439,7 @@ export default function WarehouseDetailPage() {
   }, [canCatalog]);
   useEffect(() => {
     setDeviceFilters({ q: "", status: "", deviceTypeId: "", page: 1 });
-    setPartFilters({ q: "", status: "", page: 1 });
+    setPartFilters({ q: "", status: "", componentTypeId: "", page: 1 });
     setHistoryFilters({
       q: "",
       type: "",
@@ -447,6 +466,7 @@ export default function WarehouseDetailPage() {
     }
   }
   function partHistory(item: Part) {
+    setActiveTab("history");
     setHistoryFilters({
       q: "",
       type: "",
@@ -498,24 +518,27 @@ export default function WarehouseDetailPage() {
     ) : null;
   return (
     <div className="space-y-8">
-      <Link
-        href="/kho"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
-      >
-        <ArrowLeft className="h-4 w-4" /> Danh sách kho
-      </Link>
+      {!embedded && (
+        <Link
+          href="/kho"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
+        >
+          <ArrowLeft className="h-4 w-4" /> Danh sách kho
+        </Link>
+      )}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Chi tiết kho
-          </p>
+          {!embedded && (
+            <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              Chi tiết kho
+            </p>
+          )}
           <h1 className="mt-1 text-3xl font-bold">
             {warehouse?.name ??
               (loadingSummary ? "Đang tải kho…" : "Thông tin kho")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Thiết bị được theo dõi theo kho quản lý, gồm cả thiết bị đang sử
-            dụng hoặc đang cho mượn.
+            Quản lý tồn kho, thiết bị, linh kiện và lịch sử giao dịch.
           </p>
         </div>
         <Button
@@ -543,16 +566,16 @@ export default function WarehouseDetailPage() {
         </h2>
         <dl className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           <div>
-            <dt className="text-sm text-muted-foreground">Mã kho</dt>
-            <dd className="mt-1 font-semibold">{warehouse?.code ?? "—"}</dd>
-          </div>
-          <div>
             <dt className="text-sm text-muted-foreground">Vị trí kho</dt>
-            <dd className="mt-1">Chưa có thông tin</dd>
+            <dd className="mt-1">
+              {warehouse?.address || "Chưa có thông tin"}
+            </dd>
           </div>
           <div>
             <dt className="text-sm text-muted-foreground">Người quản lý</dt>
-            <dd className="mt-1">Chưa có thông tin</dd>
+            <dd className="mt-1">
+              {warehouse?.managerKeeperId?.displayName || "Chưa có thông tin"}
+            </dd>
           </div>
           <div>
             <dt className="text-sm text-muted-foreground">Trạng thái</dt>
@@ -604,9 +627,49 @@ export default function WarehouseDetailPage() {
             kết linh kiện; {summary.parts.negativeBalances} số dư âm.
           </p>
         )}
+      {summary && summary.parts.low > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("parts");
+            setPartFilters((current) => ({
+              ...current,
+              status: "LOW",
+              page: 1,
+            }));
+          }}
+          className="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-amber-900 hover:bg-amber-100"
+        >
+          <span className="font-semibold">Cảnh báo tồn kho</span>
+          <span className="ml-2 text-sm">
+            {number(summary.parts.low)} linh kiện sắp hết. Xem danh sách
+          </span>
+        </button>
+      )}
+      <nav
+        className="flex gap-2 overflow-x-auto border-b"
+        aria-label="Nội dung kho"
+      >
+        {(
+          [
+            ["devices", "Thiết bị"],
+            ["parts", "Linh kiện"],
+            ["history", "Lịch sử giao dịch"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setActiveTab(value)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium ${activeTab === value ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
       <section
         data-section="devices"
-        className="space-y-4 rounded-xl bg-card p-5 shadow-sm ring-1 ring-border/50"
+        className={`${activeTab === "devices" ? "space-y-4" : "hidden"} rounded-xl bg-card p-5 shadow-sm ring-1 ring-border/50`}
       >
         <div>
           <h2 className="text-xl font-semibold">Thiết bị do kho quản lý</h2>
@@ -756,7 +819,7 @@ export default function WarehouseDetailPage() {
       </section>
       <section
         data-section="parts"
-        className="space-y-4 rounded-xl bg-card p-5 shadow-sm ring-1 ring-border/50"
+        className={`${activeTab === "parts" ? "space-y-4" : "hidden"} rounded-xl bg-card p-5 shadow-sm ring-1 ring-border/50`}
       >
         <div>
           <h2 className="text-xl font-semibold">Tồn linh kiện</h2>
@@ -766,13 +829,26 @@ export default function WarehouseDetailPage() {
               : "Số dư linh kiện hiện tại"}
           </p>
         </div>
-        <div className="grid gap-3 md:grid-cols-[2fr_1fr]">
+        <div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
           <Input
             label="Tìm linh kiện"
-            placeholder="Tìm mã, tên linh kiện..."
+            placeholder="Tìm mã, tên hoặc model..."
             value={partFilters.q}
             onChange={(e) =>
               setPartFilters({ ...partFilters, q: e.target.value, page: 1 })
+            }
+          />
+          <Select
+            label="Loại linh kiện"
+            placeholder="Tất cả loại"
+            options={componentTypes}
+            value={partFilters.componentTypeId}
+            onChange={(e) =>
+              setPartFilters({
+                ...partFilters,
+                componentTypeId: e.target.value,
+                page: 1,
+              })
             }
           />
           <Select
@@ -803,6 +879,7 @@ export default function WarehouseDetailPage() {
                       "Mã linh kiện",
                       "Tên linh kiện",
                       "Nhóm / Loại",
+                      "Model linh kiện",
                       "Đơn vị tính",
                       "Tồn hiện tại",
                       "Tồn tối thiểu",
@@ -816,7 +893,7 @@ export default function WarehouseDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tableState(parts, 8)}
+                  {tableState(parts, 9)}
                   {parts.data.map((item) => (
                     <tr
                       key={item._id}
@@ -834,7 +911,12 @@ export default function WarehouseDetailPage() {
                           </p>
                         )}
                       </td>
-                      <td className="p-3">{item.deviceType?.name ?? "—"}</td>
+                      <td className="p-3">{item.componentType?.name ?? "—"}</td>
+                      <td className="p-3">
+                        {[item.model?.manufacturer, item.model?.name]
+                          .filter(Boolean)
+                          .join(" · ") || "—"}
+                      </td>
                       <td className="p-3">
                         {unitLabel(item.unit?.name ?? item.unit?.code)}
                       </td>
@@ -877,7 +959,7 @@ export default function WarehouseDetailPage() {
       <section
         ref={historyRef}
         data-section="history"
-        className="scroll-mt-5 space-y-4 rounded-xl bg-card p-5 shadow-sm ring-1 ring-border/50"
+        className={`${activeTab === "history" ? "space-y-4" : "hidden"} scroll-mt-5 rounded-xl bg-card p-5 shadow-sm ring-1 ring-border/50`}
       >
         <div>
           <h2 className="text-xl font-semibold">Lịch sử giao dịch kho</h2>

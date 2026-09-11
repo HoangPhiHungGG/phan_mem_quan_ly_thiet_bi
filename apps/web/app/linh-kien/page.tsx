@@ -24,7 +24,7 @@ type PartRow = {
   stockQty: number;
   minQty: number;
   unitId?: { _id: string; name: string } | null;
-  deviceTypeId?: { _id: string; name: string } | null;
+  componentTypeId?: { _id: string; name: string } | null;
   modelId?: { _id: string; name: string } | null;
   supplierId?: { _id: string; name: string } | null;
   spec?: string;
@@ -46,7 +46,8 @@ export default function PartListPage() {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [q, setQ] = useState("");
   const [trackingMode, setTrackingMode] = useState("");
-  const [deviceTypeId, setDeviceTypeId] = useState("");
+  const [componentTypeId, setComponentTypeId] = useState("");
+  const [modelId, setModelId] = useState("");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [formError, setFormError] = useState("");
@@ -73,7 +74,8 @@ export default function PartListPage() {
     const params = new URLSearchParams({ page: String(page), limit: "20" });
     if (q.trim()) params.set("q", q.trim());
     if (trackingMode) params.set("trackingMode", trackingMode);
-    if (deviceTypeId) params.set("deviceTypeId", deviceTypeId);
+    if (componentTypeId) params.set("componentTypeId", componentTypeId);
+    if (modelId) params.set("modelId", modelId);
     apiFetch<ListResult>(`/api/parts?${params}`)
       .then((result) => {
         setRows(result.data);
@@ -81,19 +83,19 @@ export default function PartListPage() {
         setState("ready");
       })
       .catch(() => setState("error"));
-  }, [hasPermission, page, q, trackingMode, deviceTypeId]);
+  }, [hasPermission, page, q, trackingMode, componentTypeId, modelId]);
 
   useEffect(() => load(), [load]);
   useEffect(() => {
     Promise.all([
       loadCatalogOptions("units"),
-      loadCatalogOptions("device-types"),
-      loadCatalogOptions("item-models"),
+      loadCatalogOptions("component-types"),
+      loadCatalogOptions("component-models"),
       loadCatalogOptions("suppliers"),
       loadCatalogOptions("warehouses"),
     ])
-      .then(([units, deviceTypes, models, suppliers, warehouses]) =>
-        setOpts({ units, deviceTypes, models, suppliers, warehouses }),
+      .then(([units, componentTypes, models, suppliers, warehouses]) =>
+        setOpts({ units, componentTypes, models, suppliers, warehouses }),
       )
       .catch(() => undefined);
   }, []);
@@ -119,7 +121,7 @@ export default function PartListPage() {
           name: value("name"),
           trackingMode: form.get("trackingMode"),
           unitId: value("unitId"),
-          deviceTypeId: value("deviceTypeId"),
+          componentTypeId: value("componentTypeId"),
           modelId: value("modelId"),
           supplierId: value("supplierId"),
           spec: value("spec"),
@@ -167,7 +169,8 @@ export default function PartListPage() {
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
     if (trackingMode) params.set("trackingMode", trackingMode);
-    if (deviceTypeId) params.set("deviceTypeId", deviceTypeId);
+    if (componentTypeId) params.set("componentTypeId", componentTypeId);
+    if (modelId) params.set("modelId", modelId);
     const parts = await apiFetchAllPages<PartRow>("/api/parts", params);
     await exportExcel("Linh_kien", [
       {
@@ -178,8 +181,8 @@ export default function PartListPage() {
           "Tên linh kiện": row.name,
           "Kiểu quản lý":
             PART_TRACKING_LABELS[row.trackingMode] ?? row.trackingMode,
-          "Loại thiết bị": row.deviceTypeId?.name ?? "",
-          "Model / Mã hàng": row.modelId?.name ?? "",
+          "Loại linh kiện": row.componentTypeId?.name ?? "",
+          "Model linh kiện": row.modelId?.name ?? "",
           "Đơn vị tính": row.unitId?.name ?? "",
           "Nhà cung cấp": row.supplierId?.name ?? "",
           "Thông số": row.spec ?? "",
@@ -201,7 +204,7 @@ export default function PartListPage() {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Input
           label="Tìm kiếm"
           value={q}
@@ -227,14 +230,28 @@ export default function PartListPage() {
           )}
         />
         <Select
-          label="Loại thiết bị"
-          value={deviceTypeId}
+          label="Loại linh kiện"
+          value={componentTypeId}
           onChange={(e) => {
-            setDeviceTypeId(e.target.value);
+            setComponentTypeId(e.target.value);
+            setModelId("");
             setPage(1);
           }}
           placeholder="Tất cả"
-          options={opts.deviceTypes ?? []}
+          options={opts.componentTypes ?? []}
+        />
+        <Select
+          label="Model linh kiện"
+          value={modelId}
+          onChange={(e) => {
+            setModelId(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Tất cả"
+          options={(opts.models ?? []).filter(
+            (option) =>
+              !componentTypeId || option.componentTypeId === componentTypeId,
+          )}
         />
       </div>
 
@@ -268,7 +285,7 @@ export default function PartListPage() {
           className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3"
         >
           <Input name="code" label="Mã linh kiện *" required maxLength={80} />
-          <Input name="name" label="Tên *" required maxLength={150} />
+          <Input name="name" label="Tên linh kiện *" required maxLength={150} />
           <Select
             name="trackingMode"
             label="Kiểu quản lý *"
@@ -302,29 +319,30 @@ export default function PartListPage() {
             required
           />
           <CatalogCombobox
-            name="deviceTypeId"
-            label="Loại thiết bị"
-            type="device-types"
-            options={opts.deviceTypes ?? []}
-            value={createValues.deviceTypeId ?? ""}
+            name="componentTypeId"
+            label="Loại linh kiện *"
+            type="component-types"
+            options={opts.componentTypes ?? []}
+            value={createValues.componentTypeId ?? ""}
             onValueChange={(value) =>
               setCreateValues((current) => ({
                 ...current,
-                deviceTypeId: value,
+                componentTypeId: value,
                 modelId: "",
               }))
             }
-            onCreated={(option) => addOption("deviceTypes", option)}
+            onCreated={(option) => addOption("componentTypes", option)}
             canCreate={canManageCatalog}
+            required
           />
           <CatalogCombobox
             name="modelId"
-            label="Mã hàng / model"
-            type="item-models"
+            label="Model linh kiện"
+            type="component-models"
             options={(opts.models ?? []).filter(
               (option) =>
-                !createValues.deviceTypeId ||
-                option.deviceTypeId === createValues.deviceTypeId,
+                !createValues.componentTypeId ||
+                option.componentTypeId === createValues.componentTypeId,
             )}
             value={createValues.modelId ?? ""}
             onValueChange={(value) =>
@@ -332,8 +350,8 @@ export default function PartListPage() {
             }
             onCreated={(option) => addOption("models", option)}
             canCreate={canManageCatalog}
-            context={{ deviceTypeId: createValues.deviceTypeId }}
-            placeholder="Chọn loại thiết bị trước hoặc tìm model..."
+            context={{ componentTypeId: createValues.componentTypeId }}
+            placeholder="Tìm hoặc chọn model linh kiện..."
           />
           <CatalogCombobox
             name="supplierId"
@@ -427,8 +445,9 @@ export default function PartListPage() {
             )}
           </section>
           <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
-            Tồn kho khởi tạo bằng 0. Tăng tồn ban đầu phải qua nghiệp vụ nhập số
-            dư đầu kỳ; không nhập tồn trực tiếp tại đây.
+            Có thể nhập tồn ban đầu tại đây. Hệ thống sẽ tạo InventoryBalance và
+            InventoryTransaction trong cùng transaction; với linh kiện theo
+            serial, số lượng được tính đúng bằng số serial hợp lệ.
           </p>
           <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
             <Button type="submit">Lưu linh kiện</Button>

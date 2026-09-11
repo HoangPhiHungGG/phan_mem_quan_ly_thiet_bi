@@ -128,7 +128,7 @@ export default function DeviceDetailPage() {
   }, [hasPermission, id]);
   useEffect(() => {
     Promise.all([
-      loadCatalogOptions("item-models"),
+      loadCatalogOptions("device-models"),
       loadCatalogOptions("device-types"),
       loadCatalogOptions("suppliers"),
     ])
@@ -414,7 +414,7 @@ export default function DeviceDetailPage() {
             />
             <Select
               name="modelId"
-              label="Mã hàng / model"
+              label="Model thiết bị"
               placeholder="-- Không chọn --"
               options={opts.models ?? []}
               defaultValue={device.modelId?._id ?? ""}

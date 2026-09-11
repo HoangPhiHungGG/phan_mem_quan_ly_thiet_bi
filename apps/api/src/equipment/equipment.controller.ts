@@ -113,7 +113,8 @@ export class EquipmentController {
     query: {
       q?: string;
       trackingMode?: string;
-      deviceTypeId?: string;
+      componentTypeId?: string;
+      modelId?: string;
       isActive?: string;
       page?: string;
       limit?: string;

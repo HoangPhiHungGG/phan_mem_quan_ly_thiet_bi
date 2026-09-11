@@ -64,6 +64,14 @@ export async function apiFetch<T>(
         "Không thể đảo phiếu vì có serial linh kiện đã xuất khỏi kho.",
       PART_SERIAL_NOT_ALLOWED:
         "Linh kiện quản lý theo số lượng không nhận serial.",
+      COMPONENT_TYPE_REFERENCE_INVALID:
+        "Loại linh kiện không hợp lệ hoặc đã ngừng sử dụng.",
+      COMPONENT_MODEL_REFERENCE_INVALID:
+        "Model được chọn không thuộc danh mục linh kiện hoặc đã ngừng sử dụng.",
+      DEVICE_MODEL_REFERENCE_INVALID:
+        "Model được chọn không thuộc danh mục thiết bị hoặc đã ngừng sử dụng.",
+      MODEL_COMPONENT_TYPE_MISMATCH:
+        "Model linh kiện không thuộc loại linh kiện đã chọn.",
       DEVICE_LINE_REQUIRED: "Dòng thiết bị thiếu thông tin thiết bị.",
       DEVICE_ASSET_CODE_INVALID:
         "Mỗi thiết bị phải có một mã tài sản không trùng trong phiếu.",
