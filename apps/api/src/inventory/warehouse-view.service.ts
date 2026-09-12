@@ -858,6 +858,43 @@ export class WarehouseViewService {
       },
     ];
   }
+  private initialAssetHistory(
+    warehouseId: Types.ObjectId,
+  ): PipelineStage.UnionWithPipelineStage[] {
+    return [
+      { $match: { warehouseId, type: "INITIAL_RECEIPT" } },
+      {
+        $project: {
+          _id: { $concat: ["asset:", { $toString: "$_id" }] },
+          time: "$createdAt",
+          businessDate: "$createdAt",
+          type: { $literal: "OPENING" },
+          quantityIn: { $literal: 1 },
+          quantityOut: { $literal: 0 },
+          actorId: "$createdBy",
+          actorLabel: {
+            $cond: [
+              { $eq: ["$source", "LEGACY_MIGRATION"] },
+              "Hệ thống migration",
+              null,
+            ],
+          },
+          object: {
+            kind: { $literal: "DEVICE" },
+            id: "$deviceId",
+            code: "$assetCode",
+            serial: "$serial",
+          },
+          note: {
+            $ifNull: ["$note", "Nhập kho ban đầu khi tạo thiết bị"],
+          },
+          balanceAfter: { $literal: null },
+          balanceStatus: { $literal: "NOT_APPLICABLE" },
+          expectedReference: { $literal: false },
+        },
+      },
+    ];
+  }
   async history(id: string, query: Query) {
     const warehouse = await this.warehouse(id);
     const partId = query.partId ? this.objectId(query.partId) : undefined;
@@ -882,6 +919,12 @@ export class WarehouseViewService {
             pipeline: this.receiptHistory(warehouse._id),
           },
         },
+        {
+          $unionWith: {
+            coll: "asset_transactions",
+            pipeline: this.initialAssetHistory(warehouse._id),
+          },
+        },
       );
     const filter: Record<string, unknown> = {};
     if (query.type) {
@@ -889,7 +932,11 @@ export class WarehouseViewService {
         throw new BadRequestException({ code: "WAREHOUSE_QUERY_INVALID" });
       filter.type = query.type;
     }
-    if (query.q?.trim()) filter["document.code"] = regex(query.q);
+    if (query.q?.trim())
+      filter.$or = [
+        { "document.code": regex(query.q) },
+        { "object.code": regex(query.q) },
+      ];
     if (query.from || query.to) {
       const range: Record<string, Date> = {};
       for (const [field, value] of [
@@ -913,7 +960,18 @@ export class WarehouseViewService {
       { $match: filter },
       lookup("users", "actorId", "actor"),
       lookup("devices", "object.id", "device"),
-      { $set: { actor: one("actor"), device: one("device") } },
+      {
+        $set: {
+          actor: {
+            $cond: [
+              { $ne: [{ $ifNull: [one("actor"), null] }, null] },
+              one("actor"),
+              { displayName: "$actorLabel" },
+            ],
+          },
+          device: one("device"),
+        },
+      },
       lookup("item_models", "device.modelId", "model"),
       {
         $set: {

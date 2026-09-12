@@ -25,6 +25,16 @@ export class CreateDeviceDto {
   @Length(1, 80)
   assetCode!: string;
 
+  @ApiProperty({ description: "Kho nhập ban đầu của thiết bị" })
+  @IsMongoId()
+  warehouseId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 500)
+  initialReceiptNote?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -36,10 +46,9 @@ export class CreateDeviceDto {
   @IsMongoId()
   modelId?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsMongoId()
-  deviceTypeId?: string;
+  deviceTypeId!: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -156,10 +165,13 @@ export class InitialPartStockDto {
 }
 
 export class CreatePartDto {
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description: "Để trống để hệ thống tự sinh mã hiển thị ngắn",
+  })
+  @IsOptional()
   @IsString()
   @Length(1, 80)
-  code!: string;
+  code?: string;
 
   @ApiProperty()
   @IsString()

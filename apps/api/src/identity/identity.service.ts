@@ -38,6 +38,7 @@ import {
   Warehouse,
   type Permission,
 } from "./identity.schemas";
+import { DisplayCodeService } from "../display-codes/display-code.service";
 
 @Injectable()
 export class IdentityService implements OnModuleInit {
@@ -57,6 +58,7 @@ export class IdentityService implements OnModuleInit {
     @InjectConnection() private readonly connection: Connection,
     private readonly auth: AuthService,
     private readonly audit: AuditService,
+    private readonly displayCodes: DisplayCodeService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -968,9 +970,17 @@ export class IdentityService implements OnModuleInit {
 
   async createDepartment(input: CreateDepartmentDto) {
     if (input.parentId) await this.assertActiveDepartment(input.parentId);
+    const code =
+      input.code?.trim().toUpperCase() ??
+      (await this.displayCodes.nextCode(
+        "DEPARTMENT",
+        input.name,
+        async (candidate) =>
+          Boolean(await this.departments.exists({ code: candidate })),
+      ));
     return {
       data: await this.departments.create({
-        code: input.code.trim().toUpperCase(),
+        code,
         name: input.name.trim(),
         parentId: input.parentId,
       }),
@@ -991,11 +1001,17 @@ export class IdentityService implements OnModuleInit {
   async createWarehouse(input: CreateWarehouseDto) {
     if (input.departmentId)
       await this.assertActiveDepartment(input.departmentId);
+    const code =
+      input.code?.trim().toUpperCase() ??
+      (await this.displayCodes.nextCode(
+        "WAREHOUSE",
+        input.name,
+        async (candidate) =>
+          Boolean(await this.warehouses.exists({ code: candidate })),
+      ));
     return {
       data: await this.warehouses.create({
-        code:
-          input.code?.trim().toUpperCase() ??
-          `AUTO-${new Types.ObjectId().toHexString().toUpperCase()}`,
+        code,
         name: input.name.trim(),
         departmentId: input.departmentId,
         address: input.address?.trim(),

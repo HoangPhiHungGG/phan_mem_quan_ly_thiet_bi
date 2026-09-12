@@ -67,3 +67,69 @@ InventoryTransactionSchema.index({ operationId: 1, lineIndex: 1 });
 InventoryTransactionSchema.index({ repairId: 1, lineIndex: 1 });
 InventoryTransactionSchema.index({ liquidationId: 1, lineIndex: 1 });
 InventoryTransactionSchema.index({ inventoryCountId: 1, lineIndex: 1 });
+
+export const ASSET_TRANSACTION_TYPES = ["INITIAL_RECEIPT"] as const;
+export const ASSET_TRANSACTION_SOURCES = [
+  "DEVICE_CREATE",
+  "DEVICE_IMPORT",
+  "LEGACY_MIGRATION",
+] as const;
+
+// Thiết bị được quản lý theo từng tài sản, không dùng InventoryBalance của linh kiện.
+@Schema({ collection: "asset_transactions", timestamps: true })
+export class AssetTransaction {
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Device", required: true })
+  deviceId!: Types.ObjectId;
+
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: "Warehouse",
+    required: true,
+  })
+  warehouseId!: Types.ObjectId;
+
+  @Prop({ required: true, type: String, enum: ASSET_TRANSACTION_TYPES })
+  type!: (typeof ASSET_TRANSACTION_TYPES)[number];
+
+  @Prop({ required: true, type: String, enum: ASSET_TRANSACTION_SOURCES })
+  source!: (typeof ASSET_TRANSACTION_SOURCES)[number];
+
+  @Prop({ required: true, min: 1, max: 1, default: 1 })
+  quantity!: 1;
+
+  @Prop({ required: true, trim: true, uppercase: true, maxlength: 80 })
+  assetCode!: string;
+
+  @Prop({ trim: true, uppercase: true, maxlength: 120 })
+  serial?: string;
+
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: "User",
+    required: function (this: AssetTransaction) {
+      return this.source !== "LEGACY_MIGRATION";
+    },
+  })
+  createdBy?: Types.ObjectId;
+
+  @Prop({
+    trim: true,
+    enum: ["SYSTEM_MIGRATION"],
+    required: function (this: AssetTransaction) {
+      return this.source === "LEGACY_MIGRATION";
+    },
+  })
+  createdBySystem?: "SYSTEM_MIGRATION";
+
+  @Prop({ trim: true, maxlength: 100 })
+  importSessionId?: string;
+
+  @Prop({ trim: true, maxlength: 500 })
+  note?: string;
+}
+
+export const AssetTransactionSchema =
+  SchemaFactory.createForClass(AssetTransaction);
+AssetTransactionSchema.index({ deviceId: 1, type: 1 }, { unique: true });
+AssetTransactionSchema.index({ warehouseId: 1, createdAt: -1 });
+AssetTransactionSchema.index({ importSessionId: 1, deviceId: 1 });

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Download, Loader2, Plus } from "lucide-react";
+import { Download, FileSpreadsheet, Loader2, Plus } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { CatalogCombobox } from "@/components/catalog/catalog-combobox";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { apiFetch, apiFetchAllPages } from "@/lib/api";
 import { exportExcel } from "@/lib/excel";
+import { ExcelImportDialog } from "@/components/equipment/excel-import-dialog";
 import {
   PART_TRACKING_LABELS,
   loadCatalogOptions,
@@ -39,6 +40,13 @@ type ListResult = {
 
 const EMPTY: Record<string, CatalogOption[]> = {};
 
+function normalizeSerials(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(/[\n,]+/)
+    .map((serial) => serial.trim().toUpperCase())
+    .filter(Boolean);
+}
+
 export default function PartListPage() {
   const { hasPermission } = useAuth();
   const [rows, setRows] = useState<PartRow[]>([]);
@@ -50,10 +58,12 @@ export default function PartListPage() {
   const [modelId, setModelId] = useState("");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [formError, setFormError] = useState("");
   const [opts, setOpts] = useState<Record<string, CatalogOption[]>>(EMPTY);
   const [createValues, setCreateValues] = useState<Record<string, string>>({});
   const canManage = hasPermission("parts.manage");
+  const canImport = hasPermission("components.import");
   const canManageCatalog = hasPermission("catalog.manage");
 
   function addOption(key: string, option: CatalogOption) {
@@ -108,11 +118,41 @@ export default function PartListPage() {
       const raw = form.get(name);
       return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
     };
-    const initialSerials = value("initialSerials")
-      ?.split(/[\n,]+/)
-      .map((serial) => serial.trim())
-      .filter(Boolean);
+    const initialSerials = normalizeSerials(value("initialSerials"));
     const isSerial = form.get("trackingMode") === "SERIAL";
+    const warehouseId = value("initialWarehouseId");
+    const initialQuantity = isSerial
+      ? initialSerials.length
+      : Number(value("initialQuantity") ?? 0);
+    const duplicateSerial = initialSerials.find(
+      (serial, index) => initialSerials.indexOf(serial) !== index,
+    );
+    if (duplicateSerial) {
+      setFormError(`Serial ${duplicateSerial} bị trùng.`);
+      return;
+    }
+    if (warehouseId && isSerial && initialSerials.length === 0) {
+      setFormError("Vui lòng nhập ít nhất một serial cho kho đã chọn.");
+      return;
+    }
+    if (warehouseId && !isSerial && initialQuantity <= 0) {
+      setFormError("Vui lòng nhập số lượng ban đầu lớn hơn 0 cho kho đã chọn.");
+      return;
+    }
+    if (!warehouseId && initialQuantity > 0) {
+      setFormError("Vui lòng chọn kho khi nhập tồn ban đầu.");
+      return;
+    }
+    const initialStock = warehouseId
+      ? {
+          warehouseId,
+          ...(isSerial
+            ? { serials: initialSerials }
+            : { quantity: initialQuantity }),
+          type: value("initialType") ?? "OPENING",
+          note: value("initialNote"),
+        }
+      : undefined;
     try {
       await apiFetch("/api/parts", {
         method: "POST",
@@ -127,17 +167,7 @@ export default function PartListPage() {
           spec: value("spec"),
           note: value("note"),
           minQty: value("minQty") ? Number(value("minQty")) : undefined,
-          initialStock: {
-            warehouseId: value("initialWarehouseId"),
-            quantity: isSerial
-              ? (initialSerials?.length ?? 0)
-              : value("initialQuantity")
-                ? Number(value("initialQuantity"))
-                : 0,
-            type: value("initialType") ?? "OPENING",
-            note: value("initialNote"),
-            serials: initialSerials,
-          },
+          initialStock,
         }),
       });
       setShowCreate(false);
@@ -255,11 +285,22 @@ export default function PartListPage() {
         />
       </div>
 
-      {canManage && (
+      {(canManage || canImport) && (
         <div className="flex gap-2">
-          <Button type="button" onClick={() => setShowCreate((v) => !v)}>
-            <Plus /> Thêm linh kiện
-          </Button>
+          {canManage && (
+            <Button type="button" onClick={() => setShowCreate((v) => !v)}>
+              <Plus /> Thêm linh kiện
+            </Button>
+          )}
+          {canImport && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowImport(true)}
+            >
+              <FileSpreadsheet /> Import Excel
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -269,6 +310,15 @@ export default function PartListPage() {
           </Button>
         </div>
       )}
+      <ExcelImportDialog
+        kind="PART"
+        open={showImport}
+        onOpenChange={setShowImport}
+        onCompleted={() => {
+          setPage(1);
+          load();
+        }}
+      />
 
       {formError && (
         <p
@@ -284,7 +334,12 @@ export default function PartListPage() {
           onSubmit={createPart}
           className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3"
         >
-          <Input name="code" label="Mã linh kiện *" required maxLength={80} />
+          <Input
+            name="code"
+            label="Mã linh kiện"
+            maxLength={80}
+            placeholder="Để trống để hệ thống tự sinh, ví dụ R0001"
+          />
           <Input name="name" label="Tên linh kiện *" required maxLength={150} />
           <Select
             name="trackingMode"
@@ -296,6 +351,7 @@ export default function PartListPage() {
                 ...current,
                 trackingMode: event.target.value,
                 initialSerials: "",
+                initialQuantity: "0",
               }))
             }
             options={Object.entries(PART_TRACKING_LABELS).map(
@@ -397,21 +453,49 @@ export default function PartListPage() {
                   setCreateValues((current) => ({
                     ...current,
                     initialWarehouseId: value,
+                    ...(!value
+                      ? { initialQuantity: "0", initialSerials: "" }
+                      : {}),
                   }))
                 }
                 onCreated={(option) => addOption("warehouses", option)}
                 canCreate={canManageCatalog}
               />
-              <Input
-                name="initialQuantity"
-                label="Số lượng ban đầu"
-                type="number"
-                min={0}
-                defaultValue={0}
-                disabled={
-                  (createValues.trackingMode ?? "QUANTITY") === "SERIAL"
-                }
-              />
+              {(createValues.trackingMode ?? "QUANTITY") === "SERIAL" ? (
+                <div>
+                  <Input
+                    name="initialQuantity"
+                    label="Số lượng ban đầu"
+                    type="number"
+                    value={normalizeSerials(createValues.initialSerials).length}
+                    readOnly
+                    className="cursor-default bg-background font-medium opacity-100"
+                    aria-describedby="initial-quantity-help"
+                  />
+                  <p
+                    id="initial-quantity-help"
+                    className="mt-1 text-xs text-muted-foreground"
+                  >
+                    Tự động tính theo số serial đã nhập.
+                  </p>
+                </div>
+              ) : (
+                <Input
+                  name="initialQuantity"
+                  label={`Số lượng ban đầu${createValues.initialWarehouseId ? " *" : ""}`}
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={createValues.initialQuantity ?? "0"}
+                  onChange={(event) =>
+                    setCreateValues((current) => ({
+                      ...current,
+                      initialQuantity: event.target.value,
+                    }))
+                  }
+                  required={Boolean(createValues.initialWarehouseId)}
+                />
+              )}
               <Select
                 name="initialType"
                 label="Nguồn nhập"
@@ -432,7 +516,7 @@ export default function PartListPage() {
             {(createValues.trackingMode ?? "QUANTITY") === "SERIAL" && (
               <Textarea
                 name="initialSerials"
-                label="Danh sách serial nhập ban đầu"
+                label={`Danh sách serial nhập ban đầu${createValues.initialWarehouseId ? " *" : ""}`}
                 value={createValues.initialSerials ?? ""}
                 onChange={(event) =>
                   setCreateValues((current) => ({
@@ -441,6 +525,7 @@ export default function PartListPage() {
                   }))
                 }
                 placeholder="Mỗi serial một dòng hoặc ngăn cách bằng dấu phẩy. Số lượng được tính từ serial."
+                required={Boolean(createValues.initialWarehouseId)}
               />
             )}
           </section>

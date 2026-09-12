@@ -34,15 +34,24 @@ import {
 import { EquipmentController } from "./equipment.controller";
 import { EquipmentService } from "./equipment.service";
 import {
+  AssetTransaction,
+  AssetTransactionSchema,
   InventoryBalance,
   InventoryBalanceSchema,
   InventoryTransaction,
   InventoryTransactionSchema,
 } from "../inventory/inventory.schemas";
+import { DisplayCodeModule } from "../display-codes/display-code.module";
+import {
+  EquipmentImportSession,
+  EquipmentImportSessionSchema,
+} from "./equipment-import.schemas";
+import { EquipmentImportService } from "./equipment-import.service";
 
 @Module({
   imports: [
     AuthModule,
+    DisplayCodeModule,
     MongooseModule.forFeature([
       { name: Device.name, schema: DeviceSchema },
       { name: Part.name, schema: PartSchema },
@@ -58,10 +67,15 @@ import {
       { name: Warehouse.name, schema: WarehouseSchema },
       { name: InventoryBalance.name, schema: InventoryBalanceSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
+      { name: AssetTransaction.name, schema: AssetTransactionSchema },
+      {
+        name: EquipmentImportSession.name,
+        schema: EquipmentImportSessionSchema,
+      },
     ]),
   ],
   controllers: [EquipmentController],
-  providers: [EquipmentService],
+  providers: [EquipmentService, EquipmentImportService],
   exports: [EquipmentService],
 })
 export class EquipmentModule {}

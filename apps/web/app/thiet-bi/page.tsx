@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { FileSpreadsheet, Loader2, Plus } from "lucide-react";
 import { Download } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { CatalogCombobox } from "@/components/catalog/catalog-combobox";
@@ -11,6 +11,7 @@ import { Input, Select, Textarea } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { apiFetch, apiFetchAllPages } from "@/lib/api";
 import { exportExcel } from "@/lib/excel";
+import { ExcelImportDialog } from "@/components/equipment/excel-import-dialog";
 import {
   DEVICE_TYPE_LABELS,
   USAGE_STATUS_LABELS,
@@ -50,10 +51,12 @@ export default function DeviceListPage() {
   const [warehouseId, setWarehouseId] = useState("");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [formError, setFormError] = useState("");
   const [opts, setOpts] = useState<Record<string, CatalogOption[]>>(EMPTY);
   const [createValues, setCreateValues] = useState<Record<string, string>>({});
   const canManage = hasPermission("devices.manage");
+  const canImport = hasPermission("devices.import");
   const canManageCatalog = hasPermission("catalog.manage");
 
   function addOption(key: string, option: CatalogOption) {
@@ -150,6 +153,8 @@ export default function DeviceListPage() {
             : undefined,
           warrantyUntil: value("warrantyUntil"),
           techCondition: form.get("techCondition") || "GOOD",
+          warehouseId: value("initialWarehouseId"),
+          initialReceiptNote: value("initialReceiptNote"),
           notes: value("notes"),
         }),
       });
@@ -167,9 +172,11 @@ export default function DeviceListPage() {
           ? "Mã tài sản đã tồn tại. Hãy dùng một mã khác."
           : code === "DEVICE_SERIAL_EXISTS"
             ? "Serial đã tồn tại. Hãy kiểm tra lại serial."
-            : error instanceof Error
-              ? error.message
-              : "Không thể tạo hồ sơ thiết bị.",
+            : code === "WAREHOUSE_REFERENCE_INVALID"
+              ? "Kho nhập ban đầu không hợp lệ hoặc đã ngừng sử dụng."
+              : error instanceof Error
+                ? error.message
+                : "Không thể tạo hồ sơ thiết bị.",
       );
     }
   }
@@ -285,11 +292,22 @@ export default function DeviceListPage() {
         />
       </div>
 
-      {canManage && (
+      {(canManage || canImport) && (
         <div className="flex gap-2">
-          <Button type="button" onClick={() => setShowCreate((v) => !v)}>
-            <Plus /> Thêm thiết bị
-          </Button>
+          {canManage && (
+            <Button type="button" onClick={() => setShowCreate((v) => !v)}>
+              <Plus /> Thêm thiết bị
+            </Button>
+          )}
+          {canImport && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowImport(true)}
+            >
+              <FileSpreadsheet /> Import Excel
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -299,6 +317,15 @@ export default function DeviceListPage() {
           </Button>
         </div>
       )}
+      <ExcelImportDialog
+        kind="DEVICE"
+        open={showImport}
+        onOpenChange={setShowImport}
+        onCompleted={() => {
+          setPage(1);
+          load();
+        }}
+      />
       {formError && (
         <p
           role="alert"
@@ -322,7 +349,7 @@ export default function DeviceListPage() {
           <Input name="serial" label="Serial" maxLength={120} />
           <CatalogCombobox
             name="deviceTypeId"
-            label="Loại thiết bị"
+            label="Loại thiết bị *"
             type="device-types"
             options={opts.deviceTypes ?? []}
             value={createValues.deviceTypeId ?? ""}
@@ -335,6 +362,7 @@ export default function DeviceListPage() {
             }
             onCreated={(option) => addOption("deviceTypes", option)}
             canCreate={canManageCatalog}
+            required
             placeholder="Tìm hoặc chọn loại thiết bị..."
           />
           <CatalogCombobox
@@ -387,18 +415,48 @@ export default function DeviceListPage() {
               }),
             )}
           />
+          <div className="rounded-lg border bg-muted/20 p-3 sm:col-span-2 lg:col-span-3">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide">
+              Nhập kho ban đầu
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CatalogCombobox
+                name="initialWarehouseId"
+                label="Kho nhập ban đầu *"
+                type="warehouses"
+                options={opts.warehouses ?? []}
+                value={createValues.initialWarehouseId ?? ""}
+                onValueChange={(value) =>
+                  setCreateValues((current) => ({
+                    ...current,
+                    initialWarehouseId: value,
+                  }))
+                }
+                canCreate={false}
+                onCreated={() => undefined}
+                required
+                placeholder="Tìm hoặc chọn kho..."
+              />
+              <Input
+                name="initialReceiptNote"
+                label="Ghi chú nhập kho"
+                maxLength={500}
+                placeholder="Ví dụ: Nhập tồn ban đầu"
+              />
+            </div>
+          </div>
           <Textarea
             name="notes"
             label="Ghi chú"
             className="sm:col-span-2 lg:col-span-3"
           />
           <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
-            Thiết bị sau khi tạo ở trạng thái Chưa nhập kho. Dùng chức năng Nhập
-            kho để đưa thiết bị vào kho; bộ phận, người giữ và vị trí chỉ thay
-            đổi qua nghiệp vụ cấp phát/thu hồi/điều chuyển.
+            Thiết bị sẽ được đưa vào kho đã chọn sau khi lưu. Bộ phận, người giữ
+            và vị trí chỉ thay đổi qua nghiệp vụ cấp phát, thu hồi hoặc điều
+            chuyển.
           </p>
           <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
-            <Button type="submit">Lưu hồ sơ</Button>
+            <Button type="submit">Lưu thiết bị</Button>
             <Button
               type="button"
               variant="outline"

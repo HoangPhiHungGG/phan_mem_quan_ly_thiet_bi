@@ -9,6 +9,11 @@ import { AuditLog, AuditLogSchema } from "../auth/auth.schemas";
 import { AuthService } from "../auth/auth.service";
 import type { CurrentActor } from "../auth/auth.types";
 import { verifyPassword } from "../auth/password";
+import {
+  DisplayCodeCounter,
+  DisplayCodeCounterSchema,
+} from "../display-codes/display-code.schemas";
+import { DisplayCodeService } from "../display-codes/display-code.service";
 import { Keeper, KeeperSchema } from "../catalog/catalog.schemas";
 import { IdentityService } from "./identity.service";
 import {
@@ -68,6 +73,9 @@ integration("IdentityService account lifecycle", () => {
     keepers = connection.model(Keeper.name, KeeperSchema);
     auditLogs = connection.model(AuditLog.name, AuditLogSchema);
     const audit = new AuditService(auditLogs);
+    const displayCodes = new DisplayCodeService(
+      connection.model(DisplayCodeCounter.name, DisplayCodeCounterSchema),
+    );
     service = new IdentityService(
       users,
       roles,
@@ -80,6 +88,7 @@ integration("IdentityService account lifecycle", () => {
       connection,
       { revokeUserSessions } as unknown as AuthService,
       audit,
+      displayCodes,
     );
     await Promise.all(
       Object.values(connection.models).map((model) => model.init()),

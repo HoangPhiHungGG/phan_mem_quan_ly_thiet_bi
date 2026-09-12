@@ -34,7 +34,9 @@ function equipment(models: {
     generic,
     generic,
     generic,
+    generic,
     { write: jest.fn() } as any,
+    { nextCode: jest.fn().mockResolvedValue("R0001") } as any,
   );
 }
 
@@ -79,6 +81,8 @@ describe("Model scope between Device and Component", () => {
       await service.createDevice(
         {
           assetCode: "DEV-01",
+          warehouseId: "507f1f77bcf86cd799439014",
+          deviceTypeId: "507f1f77bcf86cd799439015",
           modelId: "507f1f77bcf86cd799439013",
           techCondition: "GOOD",
         },
@@ -131,6 +135,7 @@ describe("Model scope between Device and Component", () => {
       generic,
       generic,
       { write: jest.fn() } as any,
+      { nextCode: jest.fn().mockResolvedValue("C0001") } as any,
     );
 
     await service.list("component-models", {});
@@ -169,6 +174,7 @@ describe("Model scope between Device and Component", () => {
       generic,
       generic,
       { write: jest.fn() } as any,
+      { nextCode: jest.fn().mockResolvedValue("R0001") } as any,
     );
 
     const result = await service.create(
@@ -180,7 +186,7 @@ describe("Model scope between Device and Component", () => {
     expect(componentTypes.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "RAM",
-        code: expect.stringMatching(/^AUTO-[A-F0-9]{24}$/),
+        code: "R0001",
       }),
     );
     expect(result.data).toEqual(expect.objectContaining({ name: "RAM" }));

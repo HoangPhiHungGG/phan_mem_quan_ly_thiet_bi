@@ -11,6 +11,28 @@ function readCookie(name: string): string | undefined {
   return part ? decodeURIComponent(part.slice(prefix.length)) : undefined;
 }
 
+function friendlyValidationMessage(message: string | undefined) {
+  if (!message) return undefined;
+  const rules: Array<[string, string]> = [
+    [
+      "componentTypeId must be a mongodb id",
+      "Vui lòng chọn loại linh kiện hợp lệ.",
+    ],
+    ["unitId must be a mongodb id", "Vui lòng chọn đơn vị tính hợp lệ."],
+    [
+      "deviceTypeId must be a mongodb id",
+      "Vui lòng chọn loại thiết bị hợp lệ.",
+    ],
+    ["modelId must be a mongodb id", "Model được chọn không hợp lệ."],
+    ["supplierId must be a mongodb id", "Nhà cung cấp được chọn không hợp lệ."],
+    ["warehouseId must be a mongodb id", "Kho nhập được chọn không hợp lệ."],
+    ["trackingMode must be one of", "Vui lòng chọn kiểu quản lý hợp lệ."],
+  ];
+  return (
+    rules.find(([validation]) => message.includes(validation))?.[1] ?? message
+  );
+}
+
 export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
@@ -46,12 +68,35 @@ export async function apiFetch<T>(
       OPENING_SOURCE_AND_REASON_REQUIRED:
         "Nhập số dư đầu kỳ cần nhập nguồn dữ liệu và lý do.",
       PART_REFERENCE_INVALID: "Linh kiện không hợp lệ hoặc đã ngừng sử dụng.",
+      INITIAL_STOCK_QUANTITY_REQUIRED:
+        "Vui lòng nhập số lượng ban đầu lớn hơn 0 cho kho đã chọn.",
+      INITIAL_STOCK_WAREHOUSE_REQUIRED:
+        "Vui lòng chọn kho khi nhập tồn ban đầu.",
+      INITIAL_STOCK_SERIALS_REQUIRED:
+        "Vui lòng nhập ít nhất một serial cho kho đã chọn.",
+      INITIAL_STOCK_TYPE_INVALID: "Nguồn nhập ban đầu không hợp lệ.",
+      PART_SERIAL_DUPLICATE_IN_INITIAL_STOCK:
+        "Danh sách serial nhập ban đầu có serial bị trùng.",
       PART_SERIAL_COUNT_MISMATCH:
         "Số serial phải đúng bằng số lượng linh kiện theo serial.",
       PART_SERIAL_COUNT_EXCEEDED:
         "Số serial không được lớn hơn số lượng linh kiện nhập.",
       PART_SERIAL_ALREADY_EXISTS:
         "Một hoặc nhiều serial đã tồn tại cho linh kiện này.",
+      PART_CODE_EXISTS: "Mã linh kiện đã tồn tại.",
+      PART_CREATE_FAILED: "Không thể tạo linh kiện. Vui lòng thử lại.",
+      IMPORT_FILE_EMPTY: "File Excel không có dòng dữ liệu.",
+      IMPORT_ROW_LIMIT_EXCEEDED: "Mỗi lần chỉ được import tối đa 5.000 dòng.",
+      IMPORT_SESSION_NOT_FOUND:
+        "Phiên import không tồn tại hoặc đã hết hạn. Hãy kiểm tra lại file.",
+      IMPORT_ALREADY_PROCESSING:
+        "Phiên import đang được xử lý. Vui lòng không bấm Import nhiều lần.",
+      IMPORT_HAS_ERRORS:
+        "File còn dòng lỗi. Hãy chọn chỉ import dòng hợp lệ hoặc sửa lại file.",
+      IMPORT_CONCURRENT_DUPLICATE:
+        "Dữ liệu đã thay đổi sau khi xem trước và phát sinh mã hoặc serial trùng. Không có dòng nào được import; hãy kiểm tra lại file.",
+      IMPORT_CATALOG_CHANGED:
+        "Danh mục đã thay đổi sau khi xem trước. Hãy kiểm tra lại file trước khi import.",
       RECEIPT_ALREADY_COMPLETED:
         "Phiếu đã được hoàn tất, tồn kho không được ghi nhận lần hai.",
       RECEIPT_NOT_EDITABLE: "Chỉ được sửa phiếu đang ở trạng thái Nháp.",
@@ -235,7 +280,9 @@ export async function apiFetch<T>(
     };
     const code = payload.error?.code ?? payload.code;
     const error = new Error(
-      knownMessages[code ?? ""] ?? rawMessage ?? "Yêu cầu không thành công.",
+      knownMessages[code ?? ""] ??
+        friendlyValidationMessage(rawMessage) ??
+        "Yêu cầu không thành công.",
     );
     Object.assign(error, {
       status: response.status,

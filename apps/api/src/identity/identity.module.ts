@@ -23,10 +23,12 @@ import {
   Position,
   PositionSchema,
 } from "../catalog/catalog.schemas";
+import { DisplayCodeModule } from "../display-codes/display-code.module";
 
 @Module({
   imports: [
     AuthModule,
+    DisplayCodeModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Role.name, schema: RoleSchema },

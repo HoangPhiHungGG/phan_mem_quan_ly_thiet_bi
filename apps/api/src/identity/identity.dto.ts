@@ -193,9 +193,10 @@ export class AssignRoleDto {
 }
 
 export class CreateDepartmentDto {
+  @IsOptional()
   @IsString()
   @Length(1, 50)
-  code!: string;
+  code?: string;
 
   @IsString()
   @Length(1, 150)

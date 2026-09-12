@@ -40,6 +40,9 @@ export class Attachment {
 // Hồ sơ thiết bị
 @Schema({ collection: "devices", timestamps: true })
 export class Device {
+  @Prop({ trim: true, maxlength: 150 })
+  name?: string;
+
   @Prop({ required: true, trim: true, uppercase: true, maxlength: 80 })
   assetCode!: string;
 
@@ -57,6 +60,9 @@ export class Device {
 
   @Prop()
   purchasedAt?: Date;
+
+  @Prop()
+  receivedAt?: Date;
 
   @Prop({ min: 0 })
   purchasePrice?: number;

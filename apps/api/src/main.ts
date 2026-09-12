@@ -2,12 +2,18 @@ import { NestFactory } from "@nestjs/core";
 import { ValidationPipe, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { json, urlencoded } from "express";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
   const config = app.get(ConfigService);
   const logger = new Logger("Bootstrap");
+
+  // Preview Excel được gửi dưới dạng JSON đã đọc an toàn ở trình duyệt.
+  // 15 MB đủ cho tối đa 5.000 dòng nhưng vẫn giữ giới hạn payload rõ ràng.
+  app.use(json({ limit: "15mb" }));
+  app.use(urlencoded({ extended: true, limit: "1mb" }));
 
   // CORS - chỉ cho phép origin được cấu hình
   const corsOrigins = (

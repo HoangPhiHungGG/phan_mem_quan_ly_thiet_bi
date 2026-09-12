@@ -34,6 +34,7 @@ import type {
   CreateCatalogDto,
   UpdateCatalogDto,
 } from "./catalog.dto";
+import { DisplayCodeService } from "../display-codes/display-code.service";
 
 /* eslint-disable @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 type AnyModel = Model<any>;
@@ -75,6 +76,7 @@ export class CatalogService implements OnModuleInit {
     @InjectModel(OperationDocument.name)
     private readonly operations: AnyModel,
     private readonly audit: AuditService,
+    private readonly displayCodes: DisplayCodeService,
   ) {}
   private readonly entries: Record<CatalogType, CatalogEntry> = {
     departments: {
@@ -335,6 +337,24 @@ export class CatalogService implements OnModuleInit {
     return entry.modelEntityType ? { entityType: entry.modelEntityType } : {};
   }
 
+  private displayCodeEntity(type: CatalogType): string {
+    const entities: Record<CatalogType, string> = {
+      departments: "DEPARTMENT",
+      warehouses: "WAREHOUSE",
+      locations: "LOCATION",
+      keepers: "KEEPER",
+      positions: "POSITION",
+      suppliers: "SUPPLIER",
+      "device-types": "DEVICE_TYPE",
+      "component-types": "COMPONENT_TYPE",
+      "item-models": "DEVICE_MODEL",
+      "device-models": "DEVICE_MODEL",
+      "component-models": "COMPONENT_MODEL",
+      units: "UNIT",
+    };
+    return entities[type];
+  }
+
   async list(
     type: string,
     query: {
@@ -443,10 +463,13 @@ export class CatalogService implements OnModuleInit {
     }
     if (input.description?.trim()) doc.description = input.description.trim();
     if (input.code?.trim()) doc.code = input.code.trim().toUpperCase();
-    else if (entry.codeRequired)
-      // Giữ code làm khóa kỹ thuật để tương thích dữ liệu/index cũ, nhưng người
-      // dùng không phải nhập mã cho danh mục phụ.
-      doc.code = `AUTO-${new Types.ObjectId().toHexString().toUpperCase()}`;
+    else if (entry.codeRequired) {
+      doc.code = await this.displayCodes.nextCode(
+        this.displayCodeEntity(type as CatalogType),
+        name,
+        async (code) => Boolean(await entry.model.exists({ code })),
+      );
+    }
 
     switch (type) {
       case "locations": {

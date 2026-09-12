@@ -10,7 +10,7 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-7-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-Một nền tảng thống nhất để quản lý tài sản IT từ lúc nhập kho, cấp phát và sử dụng đến kiểm kê, sửa chữa, thu hồi và thanh lý.
+Một nền tảng thống nhất để quản lý tài sản IT từ lúc tiếp nhận vào kho, cấp phát và sử dụng đến kiểm kê, sửa chữa, thu hồi và thanh lý.
 
 </div>
 
@@ -24,24 +24,39 @@ Giao diện hỗ trợ desktop, tablet và mobile; API có tài liệu Swagger; 
 
 ## Chức năng chính
 
-| Nhóm                   | Chức năng                                                                               |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| **Tổng quan**          | KPI tài sản, phân bổ thiết bị, cảnh báo, xu hướng nhập/xuất và hoạt động gần đây        |
-| **Thiết bị**           | Hồ sơ tài sản, asset code, serial, model, tình trạng, vị trí, người giữ và tệp đính kèm |
-| **Linh kiện**          | Quản lý theo số lượng hoặc từng serial, tồn tối thiểu, loại và model linh kiện độc lập  |
-| **Kho**                | Chọn kho tại chỗ, xem thiết bị thực tế trong kho, tồn linh kiện và lịch sử giao dịch    |
-| **Nhập kho**           | Lập, hoàn tất và đảo phiếu nhập; cập nhật số dư bằng transaction                        |
-| **Cấp phát**           | Giao thiết bị/linh kiện cho nhân sự hoặc bộ phận                                        |
-| **Mượn / trả**         | Theo dõi hạn trả, trả từng phần, tình trạng nhận lại và lịch sử trả                     |
-| **Điều chuyển**        | Điều chuyển giữa các kho với bước xuất, tiếp nhận và từ chối                            |
-| **Thu hồi**            | Thu hồi tài sản đã cấp phát về kho và ghi nhận tình trạng thực tế                       |
-| **Sửa chữa**           | Tiếp nhận, đang sửa, hoàn tất, không thể sửa và hướng xử lý sau sửa                     |
-| **Kiểm kê**            | Snapshot số liệu, ghi nhận thực tế, phát hiện và xử lý chênh lệch                       |
-| **Thanh lý**           | Lập phiếu, gửi duyệt, phê duyệt/từ chối và hoàn tất thanh lý                            |
-| **Báo cáo**            | Báo cáo tài sản, tồn kho, giao dịch và xuất Excel                                       |
-| **Nhân sự & danh mục** | Bộ phận, chức vụ, người giữ, kho, vị trí, nhà cung cấp, loại/model và đơn vị tính       |
-| **Quản trị**           | Tài khoản, khóa/mở khóa, vai trò, permission, đặt lại mật khẩu và audit log             |
-| **Thông báo**          | Chuông thông báo theo tài khoản, badge chưa đọc, đánh dấu đọc và trang tổng hợp         |
+| Nhóm                   | Chức năng                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| **Tổng quan**          | KPI tài sản, phân bổ thiết bị, cảnh báo, xu hướng nhập/xuất và hoạt động gần đây      |
+| **Thiết bị**           | Tạo/import tài sản vào kho trực tiếp, quản lý asset code, serial, model và vòng đời   |
+| **Linh kiện**          | Quản lý theo số lượng hoặc serial; import Excel, tồn tối thiểu, loại và model độc lập |
+| **Kho**                | Chọn kho tại chỗ, xem thiết bị thực tế trong kho, tồn linh kiện và lịch sử giao dịch  |
+| **Nhập kho linh kiện** | Lập, hoàn tất và đảo phiếu nhập linh kiện/số dư đầu kỳ bằng transaction               |
+| **Cấp phát**           | Giao thiết bị/linh kiện cho nhân sự hoặc bộ phận                                      |
+| **Mượn / trả**         | Theo dõi hạn trả, trả từng phần, tình trạng nhận lại và lịch sử trả                   |
+| **Điều chuyển**        | Điều chuyển giữa các kho với bước xuất, tiếp nhận và từ chối                          |
+| **Thu hồi**            | Thu hồi tài sản đã cấp phát về kho và ghi nhận tình trạng thực tế                     |
+| **Sửa chữa**           | Tiếp nhận, đang sửa, hoàn tất, không thể sửa và hướng xử lý sau sửa                   |
+| **Kiểm kê**            | Snapshot số liệu, ghi nhận thực tế, phát hiện và xử lý chênh lệch                     |
+| **Thanh lý**           | Lập phiếu, gửi duyệt, phê duyệt/từ chối và hoàn tất thanh lý                          |
+| **Báo cáo**            | Báo cáo tài sản, tồn kho, giao dịch và xuất Excel                                     |
+| **Nhân sự & danh mục** | Bộ phận, chức vụ, người giữ, kho, vị trí, nhà cung cấp, loại/model và đơn vị tính     |
+| **Quản trị**           | Tài khoản, khóa/mở khóa, vai trò, permission, đặt lại mật khẩu và audit log           |
+| **Thông báo**          | Chuông thông báo theo tài khoản, badge chưa đọc, đánh dấu đọc và trang tổng hợp       |
+
+### Tiếp nhận thiết bị và import Excel
+
+- Khi tạo thiết bị, người dùng chọn kho nhận. Backend ghi đồng thời hồ sơ thiết bị ở trạng thái `IN_STOCK`, giao dịch tài sản `INITIAL_RECEIPT` và audit log trong một MongoDB transaction.
+- Thiết bị và linh kiện đều có luồng import hai bước: **xem trước** để kiểm tra dữ liệu, sau đó **xác nhận** mới ghi database.
+- File mẫu Excel có sẵn trang dữ liệu và hướng dẫn. Hệ thống kiểm tra định dạng, danh mục tham chiếu, dữ liệu trùng, giới hạn dung lượng và số dòng trước khi import.
+- Phiên import có thời hạn, chống commit lặp và hỗ trợ chính sách dừng hoặc bỏ qua dữ liệu trùng.
+- Import thiết bị tạo lịch sử `AssetTransaction`; import linh kiện điều chỉnh tồn bằng `InventoryTransaction`, giúp truy vết đầy đủ thay vì sửa số dư trực tiếp.
+
+| API                                | Quyền               | Mục đích                      |
+| ---------------------------------- | ------------------- | ----------------------------- |
+| `POST /api/devices/import/preview` | `devices.import`    | Kiểm tra trước file thiết bị  |
+| `POST /api/devices/import/commit`  | `devices.import`    | Xác nhận import thiết bị      |
+| `POST /api/parts/import/preview`   | `components.import` | Kiểm tra trước file linh kiện |
+| `POST /api/parts/import/commit`    | `components.import` | Xác nhận import linh kiện     |
 
 ## Kiến trúc
 
@@ -52,7 +67,7 @@ flowchart LR
     A --> V[Validation · Permission Guards]
     V --> S[Business Services]
     S --> M[(MongoDB Replica Set)]
-    S --> T[Inventory Transactions]
+    S --> T[Inventory & Asset Transactions]
     S --> L[Audit Logs]
 ```
 
@@ -154,7 +169,8 @@ flowchart LR
 
 - Snapshot kiểm kê giữ nguyên số liệu tại thời điểm bắt đầu.
 - Chênh lệch kiểm kê không tự sửa dữ liệu gốc khi chưa được xử lý.
-- Thiết bị chỉ được tính là trong kho khi có trạng thái `IN_STOCK` và không có người giữ.
+- Thiết bị mới được đưa thẳng vào kho đã chọn và có giao dịch `INITIAL_RECEIPT`; không cần lập thêm phiếu nhập thiết bị.
+- Thiết bị chỉ được tính là trong kho khi có trạng thái `IN_STOCK`, có `warehouseId` và không có người giữ.
 - Linh kiện theo serial yêu cầu số lượng khớp với số serial hợp lệ.
 - Model thiết bị và model linh kiện được phân tách bằng `entityType`.
 - Các thao tác quan trọng dùng transaction hoặc optimistic concurrency.
@@ -173,21 +189,39 @@ npm run test:e2e
 
 Các integration test có transaction cần MongoDB replica set hoạt động. Chạy `npm run db:up` trước khi chạy.
 
+## Migration dữ liệu
+
+Các lệnh migration mặc định chạy ở chế độ **dry-run** để chỉ thống kê dữ liệu. Thêm `--apply` sau khi đã kiểm tra kết quả.
+
+```bash
+# Chuẩn hóa mã hiển thị của danh mục và nhân sự
+npm run migrate:display-codes --workspace=@pmqltb/api
+npm run migrate:display-codes --workspace=@pmqltb/api -- --apply
+
+# Đưa thiết bị cũ chưa có kho vào kho có tên chính xác "Kho IT"
+npm run migrate:unwarehoused-devices --workspace=@pmqltb/api
+npm run migrate:unwarehoused-devices --workspace=@pmqltb/api -- --apply
+```
+
+Migration thiết bị chỉ xử lý tài sản đang hoạt động, có trạng thái `NOT_RECEIVED` và chưa có kho. Mỗi thiết bị được cập nhật trong transaction riêng, giữ nguyên `_id`, tạo `AssetTransaction` nguồn `LEGACY_MIGRATION` và có thể chạy lại an toàn. Lệnh sẽ dừng nếu không tìm thấy hoặc có nhiều kho cùng tên `Kho IT`.
+
 ## Lệnh thường dùng
 
-| Lệnh                | Mục đích                         |
-| ------------------- | -------------------------------- |
-| `npm run dev`       | Chạy đồng thời API và Web        |
-| `npm run dev:api`   | Chỉ chạy NestJS API              |
-| `npm run dev:web`   | Chỉ chạy Next.js Web             |
-| `npm run build`     | Build toàn bộ workspace          |
-| `npm run lint`      | Kiểm tra ESLint                  |
-| `npm run typecheck` | Kiểm tra TypeScript              |
-| `npm run test`      | Chạy test hiện có                |
-| `npm run test:e2e`  | Chạy E2E API                     |
-| `npm run db:up`     | Khởi động MongoDB và replica set |
-| `npm run db:stop`   | Dừng MongoDB, giữ dữ liệu        |
-| `npm run db:logs`   | Xem log MongoDB                  |
+| Lệnh                                                           | Mục đích                                 |
+| -------------------------------------------------------------- | ---------------------------------------- |
+| `npm run dev`                                                  | Chạy đồng thời API và Web                |
+| `npm run dev:api`                                              | Chỉ chạy NestJS API                      |
+| `npm run dev:web`                                              | Chỉ chạy Next.js Web                     |
+| `npm run build`                                                | Build toàn bộ workspace                  |
+| `npm run lint`                                                 | Kiểm tra ESLint                          |
+| `npm run typecheck`                                            | Kiểm tra TypeScript                      |
+| `npm run test`                                                 | Chạy test hiện có                        |
+| `npm run test:e2e`                                             | Chạy E2E API                             |
+| `npm run db:up`                                                | Khởi động MongoDB và replica set         |
+| `npm run db:stop`                                              | Dừng MongoDB, giữ dữ liệu                |
+| `npm run db:logs`                                              | Xem log MongoDB                          |
+| `npm run migrate:display-codes --workspace=@pmqltb/api`        | Xem trước migration mã hiển thị          |
+| `npm run migrate:unwarehoused-devices --workspace=@pmqltb/api` | Xem trước migration thiết bị chưa có kho |
 
 ## Khôi phục mật khẩu quản trị ở local
 
@@ -207,7 +241,7 @@ Lệnh không in mật khẩu, cập nhật password hash và thu hồi phiên c
 - Không bypass transaction/audit khi điều chỉnh tồn kho.
 - Không dùng AuditLog thay cho Notification.
 - Không lưu token hoặc mật khẩu trong source, README hay lịch sử Git.
-- Mã tài sản, serial và mã phiếu là định danh nghiệp vụ; mã danh mục phụ có thể được backend tự sinh.
+- Mã hiển thị dùng định dạng ngắn, dễ đọc và được sinh tập trung; mã tài sản, serial và mã phiếu vẫn là định danh nghiệp vụ.
 
 ---
 

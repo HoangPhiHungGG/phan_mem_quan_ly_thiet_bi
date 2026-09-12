@@ -18,6 +18,7 @@ export const PERMISSION_GROUPS = [
     permissions: [
       { code: "devices.read", label: "Xem" },
       { code: "devices.manage", label: "Tạo, sửa và xóa" },
+      { code: "devices.import", label: "Import Excel" },
     ],
   },
   {
@@ -25,6 +26,7 @@ export const PERMISSION_GROUPS = [
     permissions: [
       { code: "parts.read", label: "Xem" },
       { code: "parts.manage", label: "Tạo, sửa và xóa" },
+      { code: "components.import", label: "Import Excel" },
     ],
   },
   {
@@ -141,8 +143,10 @@ export const LEGACY_PERMISSIONS = [
   "catalog.manage",
   "devices.read",
   "devices.manage",
+  "devices.import",
   "parts.read",
   "parts.manage",
+  "components.import",
   "receipts.read",
   "receipts.manage",
   "opening-balance.manage",

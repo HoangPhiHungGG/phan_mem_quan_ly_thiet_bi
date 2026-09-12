@@ -28,6 +28,7 @@ import type {
 } from "./equipment.dto";
 import {
   Device,
+  type DeviceDocument,
   Part,
   type PartDocument,
   PartSerial,
@@ -35,9 +36,11 @@ import {
   USAGE_STATUSES,
 } from "./equipment.schemas";
 import {
+  AssetTransaction,
   InventoryBalance,
   InventoryTransaction,
 } from "../inventory/inventory.schemas";
+import { DisplayCodeService } from "../display-codes/display-code.service";
 
 type AnyModel = Model<any>;
 
@@ -87,7 +90,10 @@ export class EquipmentService {
     private readonly inventoryBalances: AnyModel,
     @InjectModel(InventoryTransaction.name)
     private readonly inventoryTransactions: AnyModel,
+    @InjectModel(AssetTransaction.name)
+    private readonly assetTransactions: Model<AssetTransaction>,
     private readonly audit: AuditService,
+    private readonly displayCodes: DisplayCodeService,
   ) {}
 
   private isDuplicate(error: unknown): boolean {
@@ -109,7 +115,11 @@ export class EquipmentService {
     }
     const keyPattern = (error as { keyPattern?: Record<string, unknown> })
       .keyPattern;
-    return keyPattern ? Object.keys(keyPattern)[0] : undefined;
+    if (!keyPattern) return undefined;
+    // Compound serial indexes normally start with partId. Prefer the field that
+    // explains the conflict to the caller instead of the first index key.
+    if ("serial" in keyPattern) return "serial";
+    return Object.keys(keyPattern)[0];
   }
 
   private async assertRef(
@@ -203,28 +213,78 @@ export class EquipmentService {
   }
   async createDevice(input: CreateDeviceDto, actor: CurrentActor) {
     await this.validateDeviceRefs(input);
+    const session = await this.devices.db.startSession();
+    let device: DeviceDocument | undefined;
     try {
-      const device = await this.devices.create({
-        assetCode: input.assetCode.trim().toUpperCase(),
-        serial: emptyToUndefined(input.serial)?.toUpperCase(),
-        modelId: input.modelId,
-        deviceTypeId: input.deviceTypeId,
-        supplierId: input.supplierId,
-        purchasedAt: input.purchasedAt,
-        purchasePrice: input.purchasePrice,
-        warrantyUntil: input.warrantyUntil,
-        techCondition: input.techCondition,
-        notes: input.notes?.trim(),
-        usageStatus: "NOT_RECEIVED",
+      await session.withTransaction(async () => {
+        const warehouse = (await this.warehouses
+          .findOne({ _id: input.warehouseId, isActive: true })
+          .session(session)
+          .select("_id")
+          .lean()) as { _id: Types.ObjectId } | null;
+        if (!warehouse)
+          throw new BadRequestException({
+            code: "WAREHOUSE_REFERENCE_INVALID",
+          });
+        const created = await this.devices.create(
+          [
+            {
+              assetCode: input.assetCode.trim().toUpperCase(),
+              serial: emptyToUndefined(input.serial)?.toUpperCase(),
+              modelId: input.modelId,
+              deviceTypeId: input.deviceTypeId,
+              supplierId: input.supplierId,
+              purchasedAt: input.purchasedAt,
+              receivedAt: new Date(),
+              purchasePrice: input.purchasePrice,
+              warrantyUntil: input.warrantyUntil,
+              techCondition: input.techCondition,
+              notes: input.notes?.trim(),
+              warehouseId: warehouse._id,
+              usageStatus: "IN_STOCK",
+              departmentId: undefined,
+              keeperId: undefined,
+              locationId: undefined,
+            },
+          ],
+          { session },
+        );
+        device = created[0];
+        await this.assetTransactions.create(
+          [
+            {
+              deviceId: device._id,
+              warehouseId: warehouse._id,
+              type: "INITIAL_RECEIPT",
+              source: "DEVICE_CREATE",
+              quantity: 1,
+              assetCode: device.assetCode,
+              serial: device.serial,
+              createdBy: actor.userId,
+              note:
+                input.initialReceiptNote?.trim() ||
+                "Nhập kho ban đầu khi tạo thiết bị",
+            },
+          ],
+          { session },
+        );
+        await this.audit.write(
+          {
+            actorUserId: actor.userId,
+            action: "DEVICE_CREATED",
+            entityType: "Device",
+            entityId: device._id,
+            outcome: "SUCCESS",
+            metadata: {
+              assetCode: device.assetCode,
+              warehouseId: input.warehouseId,
+              initialReceipt: true,
+            },
+          },
+          session,
+        );
       });
-      await this.audit.write({
-        actorUserId: actor.userId,
-        action: "DEVICE_CREATED",
-        entityType: "Device",
-        entityId: device._id,
-        outcome: "SUCCESS",
-        metadata: { assetCode: device.assetCode },
-      });
+      if (!device) throw new Error("DEVICE_CREATE_FAILED");
       return { data: device.toObject() };
     } catch (error) {
       if (this.isDuplicate(error)) {
@@ -236,6 +296,8 @@ export class EquipmentService {
         });
       }
       throw error;
+    } finally {
+      await session.endSession();
     }
   }
 
@@ -407,15 +469,31 @@ export class EquipmentService {
     );
     const initial = input.initialStock;
     const hasWarehouse = Boolean(initial?.warehouseId);
-    const quantity = initial?.quantity ?? 0;
-    if (hasWarehouse && quantity <= 0)
+    const serials = (initial?.serials ?? [])
+      .map((serial) => serial.trim().toUpperCase())
+      .filter(Boolean);
+    const quantity =
+      input.trackingMode === "SERIAL"
+        ? serials.length
+        : (initial?.quantity ?? 0);
+    if (new Set(serials).size !== serials.length)
       throw new BadRequestException({
-        code: "INITIAL_STOCK_QUANTITY_REQUIRED",
+        code: "PART_SERIAL_DUPLICATE_IN_INITIAL_STOCK",
+      });
+    if (input.trackingMode === "SERIAL" && hasWarehouse && !serials.length)
+      throw new BadRequestException({
+        code: "INITIAL_STOCK_SERIALS_REQUIRED",
       });
     if (!hasWarehouse && quantity > 0)
       throw new BadRequestException({
         code: "INITIAL_STOCK_WAREHOUSE_REQUIRED",
       });
+    if (input.trackingMode === "QUANTITY" && hasWarehouse && quantity <= 0)
+      throw new BadRequestException({
+        code: "INITIAL_STOCK_QUANTITY_REQUIRED",
+      });
+    if (input.trackingMode === "QUANTITY" && serials.length)
+      throw new BadRequestException({ code: "PART_SERIAL_NOT_ALLOWED" });
     if (hasWarehouse)
       await this.assertRef(
         this.warehouses,
@@ -425,21 +503,14 @@ export class EquipmentService {
     const incomingTypes = ["OPENING", "PURCHASE", "RETURN", "TRANSFER_IN"];
     if (initial?.type && !incomingTypes.includes(initial.type))
       throw new BadRequestException({ code: "INITIAL_STOCK_TYPE_INVALID" });
-    const serials = (initial?.serials ?? [])
-      .map((serial) => serial.trim().toUpperCase())
-      .filter(Boolean);
-    if (new Set(serials).size !== serials.length)
-      throw new BadRequestException({
-        code: "PART_SERIAL_DUPLICATE_IN_INITIAL_STOCK",
-      });
-    if (input.trackingMode === "SERIAL" && serials.length !== quantity)
-      throw new BadRequestException({ code: "PART_SERIAL_COUNT_MISMATCH" });
-    if (input.trackingMode === "SERIAL" && serials.length && !hasWarehouse)
-      throw new BadRequestException({
-        code: "INITIAL_STOCK_WAREHOUSE_REQUIRED",
-      });
-    if (input.trackingMode === "QUANTITY" && serials.length)
-      throw new BadRequestException({ code: "PART_SERIAL_NOT_ALLOWED" });
+    const code =
+      input.code?.trim().toUpperCase() ??
+      (await this.displayCodes.nextCode(
+        "COMPONENT",
+        input.name,
+        async (candidate) =>
+          Boolean(await this.parts.exists({ code: candidate })),
+      ));
     const session = await this.parts.db.startSession();
     try {
       let part: PartDocument | undefined;
@@ -447,7 +518,7 @@ export class EquipmentService {
         const created = await this.parts.create(
           [
             {
-              code: input.code.trim().toUpperCase(),
+              code,
               name: input.name.trim(),
               trackingMode: input.trackingMode,
               unitId: input.unitId,
@@ -490,7 +561,7 @@ export class EquipmentService {
               warehouseId: initial!.warehouseId,
               status: "IN_STOCK",
             })),
-            { session },
+            { session, ordered: true },
           );
         }
       });
@@ -510,8 +581,11 @@ export class EquipmentService {
       });
       return { data: { ...part.toObject(), stockQty: quantity } };
     } catch (error) {
-      if (this.isDuplicate(error))
+      if (this.isDuplicate(error)) {
+        if (this.duplicateField(error) === "serial")
+          throw new ConflictException({ code: "PART_SERIAL_ALREADY_EXISTS" });
         throw new ConflictException({ code: "PART_CODE_EXISTS" });
+      }
       throw error;
     } finally {
       await session.endSession();

@@ -41,10 +41,12 @@ import {
 } from "./catalog.schemas";
 import { CatalogController } from "./catalog.controller";
 import { CatalogService } from "./catalog.service";
+import { DisplayCodeModule } from "../display-codes/display-code.module";
 
 @Module({
   imports: [
     AuthModule,
+    DisplayCodeModule,
     MongooseModule.forFeature([
       { name: Keeper.name, schema: KeeperSchema },
       { name: Position.name, schema: PositionSchema },

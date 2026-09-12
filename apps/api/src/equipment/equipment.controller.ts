@@ -21,12 +21,60 @@ import {
   UpdatePartStatusDto,
 } from "./equipment.dto";
 import { EquipmentService } from "./equipment.service";
+import {
+  CommitEquipmentImportDto,
+  PreviewEquipmentImportDto,
+} from "./equipment-import.dto";
+import { EquipmentImportService } from "./equipment-import.service";
 
 @ApiTags("equipment")
 @ApiCookieAuth(SESSION_COOKIE)
 @Controller("api")
 export class EquipmentController {
-  constructor(private readonly equipment: EquipmentService) {}
+  constructor(
+    private readonly equipment: EquipmentService,
+    private readonly imports: EquipmentImportService,
+  ) {}
+
+  @Post("devices/import/preview")
+  @RequirePermissions("devices.import")
+  @ApiOperation({ summary: "Kiểm tra trước dữ liệu import thiết bị" })
+  previewDevices(
+    @Body() input: PreviewEquipmentImportDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.imports.preview("DEVICE", input, actor);
+  }
+
+  @Post("devices/import/commit")
+  @RequirePermissions("devices.import")
+  @ApiOperation({ summary: "Xác nhận import thiết bị đã preview" })
+  commitDevices(
+    @Body() input: CommitEquipmentImportDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.imports.commit("DEVICE", input, actor);
+  }
+
+  @Post("parts/import/preview")
+  @RequirePermissions("components.import")
+  @ApiOperation({ summary: "Kiểm tra trước dữ liệu import linh kiện" })
+  previewParts(
+    @Body() input: PreviewEquipmentImportDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.imports.preview("PART", input, actor);
+  }
+
+  @Post("parts/import/commit")
+  @RequirePermissions("components.import")
+  @ApiOperation({ summary: "Xác nhận import linh kiện đã preview" })
+  commitParts(
+    @Body() input: CommitEquipmentImportDto,
+    @CurrentUser() actor: CurrentActor,
+  ) {
+    return this.imports.commit("PART", input, actor);
+  }
 
   @Get("devices")
   @RequirePermissions("devices.read")

@@ -67,15 +67,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Kho",
-    items: [
-      { href: "/kho", label: "Kho", icon: Warehouse },
-      {
-        href: "/nhap-kho",
-        label: "Nhập kho",
-        icon: Package,
-        permission: "receipts.read",
-      },
-    ],
+    items: [{ href: "/kho", label: "Kho", icon: Warehouse }],
   },
   {
     label: "Nghiệp vụ",

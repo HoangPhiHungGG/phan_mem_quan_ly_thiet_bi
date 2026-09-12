@@ -9,6 +9,8 @@ import {
 import { Warehouse, WarehouseSchema } from "../identity/identity.schemas";
 import { InventoryController } from "./inventory.controller";
 import {
+  AssetTransaction,
+  AssetTransactionSchema,
   InventoryBalance,
   InventoryBalanceSchema,
   InventoryTransaction,
@@ -22,6 +24,7 @@ import { InventoryService } from "./inventory.service";
     MongooseModule.forFeature([
       { name: InventoryBalance.name, schema: InventoryBalanceSchema },
       { name: InventoryTransaction.name, schema: InventoryTransactionSchema },
+      { name: AssetTransaction.name, schema: AssetTransactionSchema },
       { name: Part.name, schema: PartSchema },
       { name: Device.name, schema: DeviceSchema },
       { name: Warehouse.name, schema: WarehouseSchema },

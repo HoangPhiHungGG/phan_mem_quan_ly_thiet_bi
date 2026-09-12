@@ -493,7 +493,9 @@ export default function InboundReceiptsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold">Nhập kho & số dư đầu kỳ</h2>
+          <h2 className="text-2xl font-bold">
+            Nhập kho linh kiện & số dư đầu kỳ
+          </h2>
           <p className="text-sm text-muted-foreground">
             Lưu nháp không làm thay đổi tồn kho. Chỉ khi chọn Hoàn tất nhập kho,
             số lượng mới được ghi nhận vào kho.
@@ -624,14 +626,6 @@ export default function InboundReceiptsPage() {
                   onClick={() => addLine("PART")}
                 >
                   <Plus /> Linh kiện
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => addLine("DEVICE")}
-                >
-                  <Plus /> Thiết bị
                 </Button>
               </div>
             </div>

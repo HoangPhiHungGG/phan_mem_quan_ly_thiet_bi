@@ -10,6 +10,8 @@
     "start:prod": "node dist/main",
     "bootstrap:admin": "ts-node -r tsconfig-paths/register src/bootstrap-admin.ts",
     "reset-password:local": "ts-node -r tsconfig-paths/register src/reset-password-local.ts",
+    "migrate:display-codes": "ts-node -r tsconfig-paths/register src/migrate-display-codes.ts",
+    "migrate:unwarehoused-devices": "ts-node -r tsconfig-paths/register src/migrate-unwarehoused-devices.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "typecheck": "tsc --noEmit",
